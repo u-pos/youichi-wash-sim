@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>洗浄ゲーム</title>
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  .game {
+    position: relative;
+    width: 360px;
+  }
+  img, canvas {
+    width: 100%;
+    display: block;
+  }
+  #progress {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  #bar {
+    height: 100%;
+    width: 0%;
+    background: #4fc3f7;
+  }
+</style>
+</head>
+<body>
+
+<div class="game">
+  <img id="clean" src="clean.png">
+  <canvas id="dirt"></canvas>
+  <canvas id="spray"></canvas>
+
+  <div id="progress"><div id="bar"></div></div>
+</div>
+
+<script>
+const dirt = document.getElementById("dirt");
+const spray = document.getElementById("spray");
+const clean = document.getElementById("clean");
+const bar = document.getElementById("bar");
+
+const dCtx = dirt.getContext("2d");
+const sCtx = spray.getContext("2d");
+
+let img = new Image();
+img.src = "before.png";
+
+let isDown = false;
+let radius = 25;
+
+// 位置オフセット（ここで“持ち手位置”調整）
+let offsetX = 20;
+let offsetY = 20;
+
+img.onload = () => {
+  dirt.width = spray.width = img.width;
+  dirt.height = spray.height = img.height;
+
+  dCtx.drawImage(img, 0, 0);
+};
+
+// タッチ・マウス統一
+function getPos(e) {
+  const rect = dirt.getBoundingClientRect();
+  let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  let y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+  // スケール補正
+  x *= dirt.width / rect.width;
+  y *= dirt.height / rect.height;
+
+  return { x, y };
+}
+
+function erase(x, y) {
+  dCtx.globalCompositeOperation = "destination-out";
+  dCtx.beginPath();
+  dCtx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
+  dCtx.fill();
+}
+
+function drawSpray(x, y) {
+  sCtx.clearRect(0, 0, spray.width, spray.height);
+
+  let sx = x + offsetX;
+  let sy = y + offsetY;
+
+  // 白いスプレー
+  let g = sCtx.createRadialGradient(sx, sy, 0, sx, sy, radius);
+  g.addColorStop(0, "rgba(255,255,255,0.6)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+
+  sCtx.fillStyle = g;
+  sCtx.beginPath();
+  sCtx.arc(sx, sy, radius, 0, Math.PI * 2);
+  sCtx.fill();
+
+  // 粒子
+  for (let i = 0; i < 5; i++) {
+    sCtx.fillStyle = "rgba(255,255,255,0.3)";
+    sCtx.fillRect(
+      sx + (Math.random() - 0.5) * 30,
+      sy + (Math.random() - 0.5) * 30,
+      2, 2
+    );
+  }
+}
+
+function updateProgress() {
+  const pixels = dCtx.getImageData(0, 0, dirt.width, dirt.height).data;
+  let total = pixels.length / 4;
+  let clear = 0;
+
+  for (let i = 3; i < pixels.length; i += 4) {
+    if (pixels[i] === 0) clear++;
+  }
+
+  let percent = Math.floor((clear / total) * 100);
+  bar.style.width = percent + "%";
+}
+
+// イベント
+["mousedown","touchstart"].forEach(e=>{
+  dirt.addEventListener(e, ()=> isDown = true);
+});
+["mouseup","touchend"].forEach(e=>{
+  window.addEventListener(e, ()=> isDown = false);
+});
+
+["mousemove","touchmove"].forEach(e=>{
+  dirt.addEventListener(e, ev=>{
+    if (!isDown) return;
+    ev.preventDefault();
+
+    let {x,y} = getPos(ev);
+
+    erase(x,y);
+    drawSpray(x,y);
+    updateProgress();
+  }, { passive:false });
+});
+</script>
+
+</body>
+</html>
