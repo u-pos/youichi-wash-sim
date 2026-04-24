@@ -5,22 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>洗浄ゲーム</title>
 <style>
-  body {
-    margin: 0;
-    background: #111;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
-  .game {
-    position: relative;
-    width: 360px;
-  }
-  img, canvas {
-    width: 100%;
-    display: block;
-  }
+body {
+  margin: 0;
+  background: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.game {
+  position: relative;
+  width: 360px;
+  height: auto;
+}
+
+/* ここが超重要 */
+.game img,
+.game canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
   #progress {
     position: absolute;
     bottom: 10px;
@@ -41,6 +49,7 @@
 <body>
 
 <div class="game">
+  <img id="bg" src="bg.png">
   <img id="clean" src="clean.png">
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
