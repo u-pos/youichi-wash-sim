@@ -47,8 +47,28 @@
 
   <div id="progress"><div id="bar"></div></div>
 </div>
-
+<audio id="waterSound" src="water.mp3" preload="auto" loop></audio>
 <script>
+const waterSound = document.getElementById("waterSound");
+
+// スマホ対策（最初のタッチで再生許可）
+window.addEventListener("touchstart", () => {
+  waterSound.play().then(() => {
+    waterSound.pause();
+    waterSound.currentTime = 0;
+  }).catch(()=>{});
+}, { once: true });
+
+// 押したとき
+function startSound() {
+  waterSound.currentTime = 0;
+  waterSound.play();
+}
+
+// 離したとき
+function stopSound() {
+  waterSound.pause();
+}
 const dirt = document.getElementById("dirt");
 const spray = document.getElementById("spray");
 const clean = document.getElementById("clean");
