@@ -88,10 +88,16 @@ let offsetX = 20;
 let offsetY = 20;
 
 img.onload = () => {
-  dirt.width = spray.width = img.width;
-  dirt.height = spray.height = img.height;
+  const w = clean.naturalWidth;
+  const h = clean.naturalHeight;
 
-  dCtx.drawImage(img, 0, 0);
+  dirt.width = w;
+  dirt.height = h;
+
+  spray.width = w;
+  spray.height = h;
+
+  dCtx.drawImage(img, 0, 0, w, h);
 };
 
 // タッチ・マウス統一
@@ -108,19 +114,25 @@ function getPos(e) {
 }
 
 function erase(x, y) {
+  dCtx.save();
+
   dCtx.globalCompositeOperation = "destination-out";
+
   dCtx.beginPath();
   dCtx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
   dCtx.fill();
+
+  dCtx.restore();
 }
 
 function drawSpray(x, y) {
   sCtx.clearRect(0, 0, spray.width, spray.height);
 
+  sCtx.globalCompositeOperation = "source-over"; // ←重要
+
   let sx = x + offsetX;
   let sy = y + offsetY;
 
-  // 白いスプレー
   let g = sCtx.createRadialGradient(sx, sy, 0, sx, sy, radius);
   g.addColorStop(0, "rgba(255,255,255,0.6)");
   g.addColorStop(1, "rgba(255,255,255,0)");
@@ -129,18 +141,7 @@ function drawSpray(x, y) {
   sCtx.beginPath();
   sCtx.arc(sx, sy, radius, 0, Math.PI * 2);
   sCtx.fill();
-
-  // 粒子
-  for (let i = 0; i < 5; i++) {
-    sCtx.fillStyle = "rgba(255,255,255,0.3)";
-    sCtx.fillRect(
-      sx + (Math.random() - 0.5) * 30,
-      sy + (Math.random() - 0.5) * 30,
-      2, 2
-    );
-  }
 }
-
 function updateProgress() {
   const pixels = dCtx.getImageData(0, 0, dirt.width, dirt.height).data;
   let total = pixels.length / 4;
