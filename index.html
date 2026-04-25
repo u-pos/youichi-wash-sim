@@ -15,7 +15,6 @@ body {
   touch-action: none;
   overscroll-behavior: none;
 }
-}
 
 .game {
   position: relative;
@@ -23,7 +22,12 @@ body {
   aspect-ratio: 3 / 4; /* ←これ追加（縦長） */
   overflow: hidden;
 }
-
+#bg { z-index: 0; }
+#clean { z-index: 1; }
+#dirt { z-index: 2; }
+#spray { z-index: 3; }
+#progress { z-index: 4; }
+  
 /* ここが超重要 */
 .game img,
 .game canvas {
@@ -100,7 +104,7 @@ let radius = 25;
 let offsetX = 20;
 let offsetY = 20;
 
-clean.onload = () => {
+img.onload = () => {
   const w = clean.naturalWidth;
   const h = clean.naturalHeight;
 
@@ -110,7 +114,7 @@ clean.onload = () => {
   spray.width = w;
   spray.height = h;
 
-  dCtx.drawImage(img, 0, 0, w, h); // ←ここで初期汚れ描画
+  dCtx.drawImage(img, 0, 0, w, h); // ←ここで確実に描画
 };
 
 // タッチ・マウス統一
