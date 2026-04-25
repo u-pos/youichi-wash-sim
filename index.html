@@ -25,18 +25,27 @@ body {
 .game img,
 .game canvas {
   position: absolute;
-  top: 0;     /* ←ここを変更 */
+  top: 0;
   left: 0;
   width: 100%;
-  height: 100%;   /* ←追加（重要） */
-  object-fit: cover; /* ←追加（超重要） */
+  height: 100%;
+  object-fit: cover;
 }
 
 #bg { z-index:0; pointer-events:none; }
 #clean { z-index:1; pointer-events:none; }
 #dirt { z-index:2; }
 #spray { z-index:3; pointer-events:none; }
-#hose { z-index:4; pointer-events:none; }
+
+#hose {
+  z-index:4;
+  pointer-events:none;
+  width: 45%;
+  right: -10%;
+  bottom: -5%;
+  position:absolute;
+  transform-origin: 20% 50%; /* ←ここ重要（先端寄り） */
+}
 
 canvas { touch-action:none; }
 
@@ -64,8 +73,7 @@ canvas { touch-action:none; }
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
 
-  <!-- ホース画像（右下固定） -->
-  <img id="hose" src="hose.png" style="width:120px; right:0; bottom:0; position:absolute;">
+  <img id="hose" src="hose.png">
 
   <div id="progress"><div id="bar"></div></div>
 </div>
@@ -84,7 +92,7 @@ const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
-let power = 20;
+let power = 18;
 
 let lastX = 0;
 let lastY = 0;
@@ -112,7 +120,7 @@ function ready(){
 clean.onload = ready;
 dirtImg.onload = ready;
 
-/* 座標 */
+/* タッチ座標 */
 function getPos(e){
   const rect = dirt.getBoundingClientRect();
   let x = (e.touches[0].clientX - rect.left) * (dirt.width/rect.width);
@@ -120,23 +128,37 @@ function getPos(e){
   return {x,y};
 }
 
-/* 扇形スプレー削り */
-function sprayCone(x,y,px,py){
+/* ホース先端の位置取得 */
+function getNozzlePos(){
+  const rect = hose.getBoundingClientRect();
 
-  let dx = x - px;
-  let dy = y - py;
+  // 画像内の先端位置（微調整ポイント）
+  const nx = rect.left + rect.width * 0.15;
+  const ny = rect.top + rect.height * 0.5;
+
+  return {x:nx, y:ny};
+}
+
+/* 削り（ノズル基準） */
+function sprayFromNozzle(targetX,targetY){
+
+  let nozzle = getNozzlePos();
+
+  let dx = targetX - nozzle.x;
+  let dy = targetY - nozzle.y;
+
   let len = Math.sqrt(dx*dx + dy*dy) || 1;
-
   dx /= len;
   dy /= len;
 
   dCtx.save();
   dCtx.globalCompositeOperation = "destination-out";
 
-  for(let i=0;i<5;i++){
+  for(let i=0;i<6;i++){
     let spread = (Math.random()-0.5)*20;
-    let sx = x + (-dy * spread);
-    let sy = y + (dx * spread);
+
+    let sx = targetX + (-dy * spread);
+    let sy = targetY + (dx * spread);
 
     dCtx.beginPath();
     dCtx.arc(sx, sy, power, 0, Math.PI*2);
@@ -146,18 +168,21 @@ function sprayCone(x,y,px,py){
   dCtx.restore();
 }
 
-/* 水エフェクト（前方向に飛ぶ） */
-function drawSpray(x,y,px,py){
+/* 水エフェクト */
+function drawSpray(targetX,targetY){
+
+  let nozzle = getNozzlePos();
+
+  let dx = targetX - nozzle.x;
+  let dy = targetY - nozzle.y;
+
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  let dx = x - px;
-  let dy = y - py;
-
-  for(let i=0;i<30;i++){
-    sCtx.fillStyle = "rgba(255,255,255,0.3)";
+  for(let i=0;i<40;i++){
+    sCtx.fillStyle = "rgba(255,255,255,0.25)";
     sCtx.fillRect(
-      x + dx*2 + (Math.random()*20-10),
-      y + dy*2 + (Math.random()*20-10),
+      targetX + dx*0.3 + (Math.random()*20-10),
+      targetY + dy*0.3 + (Math.random()*20-10),
       2,6
     );
   }
@@ -181,14 +206,12 @@ function updateProgress(){
   }
 }
 
-/* ホース回転 */
+/* 回転 */
 function rotateHose(x,y){
-  let rect = hose.getBoundingClientRect();
-  let hx = rect.left + rect.width/2;
-  let hy = rect.top + rect.height/2;
+  let nozzle = getNozzlePos();
 
-  let dx = x - hx;
-  let dy = y - hy;
+  let dx = x - nozzle.x;
+  let dy = y - nozzle.y;
 
   let angle = Math.atan2(dy,dx) * 180/Math.PI;
   hose.style.transform = `rotate(${angle}deg)`;
@@ -207,10 +230,6 @@ function stopSound(){
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   startSound();
-
-  let p=getPos(e);
-  lastX=p.x;
-  lastY=p.y;
 },{passive:false});
 
 dirt.addEventListener("touchend",()=>{
@@ -222,18 +241,17 @@ dirt.addEventListener("touchmove",(e)=>{
   e.preventDefault();
   if(!isDown) return;
 
-  let p=getPos(e);
+  let p = getPos(e);
 
-  sprayCone(p.x,p.y,lastX,lastY);
-  drawSpray(p.x,p.y,lastX,lastY);
+  sprayFromNozzle(p.x,p.y);
+  drawSpray(p.x,p.y);
   updateProgress();
 
   rotateHose(e.touches[0].clientX,e.touches[0].clientY);
 
-  lastX=p.x;
-  lastY=p.y;
 },{passive:false});
 
 </script>
+
 </body>
 </html>
