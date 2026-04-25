@@ -22,35 +22,33 @@ body {
   aspect-ratio: 3 / 4;
 }
 
-.game img,
-.game canvas {
+.game img, .game canvas {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
 }
 
-#bg { z-index: 0; pointer-events:none; }
-#clean { z-index: 1; pointer-events:none; }
-#dirt { z-index: 2; }
-#spray { z-index: 3; pointer-events:none; }
+#bg { z-index:0; pointer-events:none; }
+#clean { z-index:1; pointer-events:none; }
+#dirt { z-index:2; }
+#spray { z-index:3; pointer-events:none; }
+#hose { z-index:4; pointer-events:none; }
 
-canvas { touch-action: none; }
+canvas { touch-action:none; }
 
-/* 進捗 */
 #progress {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  height: 10px;
-  background: #333;
-  border-radius: 5px;
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  right:10px;
+  height:10px;
+  background:#333;
 }
 #bar {
-  height: 100%;
-  width: 0%;
-  background: #4fc3f7;
+  height:100%;
+  width:0%;
+  background:#4fc3f7;
 }
 </style>
 </head>
@@ -63,32 +61,35 @@ canvas { touch-action: none; }
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
 
+  <!-- ホース画像（右下固定） -->
+  <img id="hose" src="hose.png" style="width:120px; right:0; bottom:0; position:absolute;">
+
   <div id="progress"><div id="bar"></div></div>
 </div>
 
-<audio id="waterSound" src="water.mp3" preload="auto" loop></audio>
+<audio id="waterSound" src="water.mp3" loop></audio>
 
 <script>
 const dirt = document.getElementById("dirt");
 const spray = document.getElementById("spray");
 const clean = document.getElementById("clean");
 const bar = document.getElementById("bar");
-const waterSound = document.getElementById("waterSound");
+const hose = document.getElementById("hose");
+const sound = document.getElementById("waterSound");
 
 const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
-let radius = 20;
+let power = 20;
 
-let prevX = 0;
-let prevY = 0;
+let lastX = 0;
+let lastY = 0;
 
 const dirtImg = new Image();
 dirtImg.src = "before.png";
 
-/* 初期化 */
-function init() {
+function init(){
   const w = clean.naturalWidth;
   const h = clean.naturalHeight;
 
@@ -97,114 +98,139 @@ function init() {
   spray.width = w;
   spray.height = h;
 
-  dCtx.drawImage(dirtImg, 0, 0, w, h);
+  dCtx.drawImage(dirtImg,0,0,w,h);
 }
 
 let loaded = 0;
-function ready() {
+function ready(){
   loaded++;
-  if (loaded === 2) init();
+  if(loaded===2) init();
 }
 clean.onload = ready;
 dirtImg.onload = ready;
 
 /* 座標 */
-function getPos(e) {
+function getPos(e){
   const rect = dirt.getBoundingClientRect();
-  let x = (e.touches[0].clientX - rect.left) * (dirt.width / rect.width);
-  let y = (e.touches[0].clientY - rect.top) * (dirt.height / rect.height);
+  let x = (e.touches[0].clientX - rect.left) * (dirt.width/rect.width);
+  let y = (e.touches[0].clientY - rect.top) * (dirt.height/rect.height);
   return {x,y};
 }
 
-/* 水で削る（線） */
-function sprayLine(x, y, px, py) {
+/* 扇形スプレー削り */
+function sprayCone(x,y,px,py){
+
+  let dx = x - px;
+  let dy = y - py;
+  let len = Math.sqrt(dx*dx + dy*dy) || 1;
+
+  dx /= len;
+  dy /= len;
+
   dCtx.save();
   dCtx.globalCompositeOperation = "destination-out";
-  dCtx.lineWidth = radius * 2;
-  dCtx.lineCap = "round";
 
-  dCtx.beginPath();
-  dCtx.moveTo(px, py);
-  dCtx.lineTo(x, y);
-  dCtx.stroke();
+  for(let i=0;i<5;i++){
+    let spread = (Math.random()-0.5)*20;
+    let sx = x + (-dy * spread);
+    let sy = y + (dx * spread);
+
+    dCtx.beginPath();
+    dCtx.arc(sx, sy, power, 0, Math.PI*2);
+    dCtx.fill();
+  }
 
   dCtx.restore();
 }
 
-/* 水エフェクト */
-function drawSpray(x, y) {
+/* 水エフェクト（前方向に飛ぶ） */
+function drawSpray(x,y,px,py){
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  for (let i = 0; i < 20; i++) {
-    sCtx.fillStyle = "rgba(255,255,255,0.2)";
+  let dx = x - px;
+  let dy = y - py;
+
+  for(let i=0;i<30;i++){
+    sCtx.fillStyle = "rgba(255,255,255,0.3)";
     sCtx.fillRect(
-      x + Math.random()*30-15,
-      y + Math.random()*30-15,
-      2,
-      6
+      x + dx*2 + (Math.random()*20-10),
+      y + dy*2 + (Math.random()*20-10),
+      2,6
     );
   }
 }
 
 /* 進捗 */
-function updateProgress() {
-  const pixels = dCtx.getImageData(0, 0, dirt.width, dirt.height).data;
-  let total = pixels.length / 4;
+function updateProgress(){
+  const data = dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+  let total = data.length/4;
   let clear = 0;
 
-  for (let i = 3; i < pixels.length; i += 4) {
-    if (pixels[i] === 0) clear++;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]===0) clear++;
   }
 
-  let percent = Math.floor((clear / total) * 100);
-  bar.style.width = percent + "%";
+  let p = Math.floor(clear/total*100);
+  bar.style.width = p+"%";
 
-  if (percent > 95) {
+  if(p>95){
     alert("洗浄完了！");
   }
 }
 
-/* 音 */
-function startSound() {
-  waterSound.currentTime = 0;
-  waterSound.play();
-}
-function stopSound() {
-  waterSound.pause();
+/* ホース回転 */
+function rotateHose(x,y){
+  let rect = hose.getBoundingClientRect();
+  let hx = rect.left + rect.width/2;
+  let hy = rect.top + rect.height/2;
+
+  let dx = x - hx;
+  let dy = y - hy;
+
+  let angle = Math.atan2(dy,dx) * 180/Math.PI;
+  hose.style.transform = `rotate(${angle}deg)`;
 }
 
-/* タッチ操作 */
-dirt.addEventListener("touchstart", (e) => {
-  isDown = true;
+/* 音 */
+function startSound(){
+  sound.currentTime = 0;
+  sound.play();
+}
+function stopSound(){
+  sound.pause();
+}
+
+/* タッチ */
+dirt.addEventListener("touchstart",(e)=>{
+  isDown=true;
   startSound();
 
-  let {x,y} = getPos(e);
-  prevX = x;
-  prevY = y;
+  let p=getPos(e);
+  lastX=p.x;
+  lastY=p.y;
+},{passive:false});
 
-}, { passive:false });
-
-dirt.addEventListener("touchend", () => {
-  isDown = false;
+dirt.addEventListener("touchend",()=>{
+  isDown=false;
   stopSound();
 });
 
-dirt.addEventListener("touchmove", (e) => {
+dirt.addEventListener("touchmove",(e)=>{
   e.preventDefault();
-  if (!isDown) return;
+  if(!isDown) return;
 
-  let {x,y} = getPos(e);
+  let p=getPos(e);
 
-  sprayLine(x, y, prevX, prevY);
-  drawSpray(x, y);
+  sprayCone(p.x,p.y,lastX,lastY);
+  drawSpray(p.x,p.y,lastX,lastY);
   updateProgress();
 
-  prevX = x;
-  prevY = y;
+  rotateHose(e.touches[0].clientX,e.touches[0].clientY);
 
-}, { passive:false });
+  lastX=p.x;
+  lastY=p.y;
+},{passive:false});
 
 </script>
-
 </body>
 </html>
