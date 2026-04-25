@@ -20,16 +20,17 @@ body {
 .game {
   position: relative;
   width: 360px;
-  height: auto;
+  aspect-ratio: 3 / 4; /* ←これ追加（縦長） */
+  overflow: hidden;
 }
 
 /* ここが超重要 */
 .game img,
 .game canvas {
   position: absolute;
-  top: 0;
   left: 0;
   width: 100%;
+  bottom: 0; /* ←ここをtopじゃなくbottomに変更 */
 }
 
   #progress {
@@ -99,7 +100,7 @@ let radius = 25;
 let offsetX = 20;
 let offsetY = 20;
 
-img.onload = () => {
+clean.onload = () => {
   const w = clean.naturalWidth;
   const h = clean.naturalHeight;
 
@@ -109,7 +110,7 @@ img.onload = () => {
   spray.width = w;
   spray.height = h;
 
-  dCtx.drawImage(img, 0, 0, w, h);
+  dCtx.drawImage(img, 0, 0, w, h); // ←ここで初期汚れ描画
 };
 
 // タッチ・マウス統一
@@ -169,10 +170,17 @@ function updateProgress() {
 
 // イベント
 ["mousedown","touchstart"].forEach(e=>{
-  dirt.addEventListener(e, ()=> isDown = true);
+  dirt.addEventListener(e, ()=>{
+    isDown = true;
+    startSound(); // ←追加
+  });
 });
+
 ["mouseup","touchend"].forEach(e=>{
-  window.addEventListener(e, ()=> isDown = false);
+  window.addEventListener(e, ()=>{
+    isDown = false;
+    stopSound(); // ←追加
+  });
 });
 
 ["mousemove","touchmove"].forEach(e=>{
