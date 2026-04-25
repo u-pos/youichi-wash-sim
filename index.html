@@ -40,11 +40,11 @@ body {
 #hose {
   z-index:4;
   pointer-events:none;
-  width: 45%;
-  right: -10%;
-  bottom: -5%;
+  width: 55%;
+  right: -20%;
+  bottom: -10%;
   position:absolute;
-  transform-origin: 20% 50%; /* ←ここ重要（先端寄り） */
+  transform-origin: 10% 50%;
 }
 
 canvas { touch-action:none; }
@@ -92,10 +92,7 @@ const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
-let power = 18;
-
-let lastX = 0;
-let lastY = 0;
+let power = 16;
 
 const dirtImg = new Image();
 dirtImg.src = "before.png";
@@ -128,21 +125,19 @@ function getPos(e){
   return {x,y};
 }
 
-/* ホース先端の位置取得 */
+/* ノズル位置 */
 function getNozzlePos(){
   const rect = hose.getBoundingClientRect();
-
-  // 画像内の先端位置（微調整ポイント）
-  const nx = rect.left + rect.width * 0.15;
-  const ny = rect.top + rect.height * 0.5;
-
-  return {x:nx, y:ny};
+  return {
+    x: rect.left + rect.width * 0.08,
+    y: rect.top + rect.height * 0.5
+  };
 }
 
-/* 削り（ノズル基準） */
+/* 削り（ノズル→方向） */
 function sprayFromNozzle(targetX,targetY){
 
-  let nozzle = getNozzlePos();
+  const nozzle = getNozzlePos();
 
   let dx = targetX - nozzle.x;
   let dy = targetY - nozzle.y;
@@ -154,14 +149,14 @@ function sprayFromNozzle(targetX,targetY){
   dCtx.save();
   dCtx.globalCompositeOperation = "destination-out";
 
-  for(let i=0;i<6;i++){
-    let spread = (Math.random()-0.5)*20;
+  for(let i=0;i<10;i++){
+    let dist = Math.random()*60;
 
-    let sx = targetX + (-dy * spread);
-    let sy = targetY + (dx * spread);
+    let x = nozzle.x + dx*dist + (Math.random()*10-5);
+    let y = nozzle.y + dy*dist + (Math.random()*10-5);
 
     dCtx.beginPath();
-    dCtx.arc(sx, sy, power, 0, Math.PI*2);
+    dCtx.arc(x, y, power, 0, Math.PI*2);
     dCtx.fill();
   }
 
@@ -171,20 +166,25 @@ function sprayFromNozzle(targetX,targetY){
 /* 水エフェクト */
 function drawSpray(targetX,targetY){
 
-  let nozzle = getNozzlePos();
+  const nozzle = getNozzlePos();
 
   let dx = targetX - nozzle.x;
   let dy = targetY - nozzle.y;
 
+  let len = Math.sqrt(dx*dx + dy*dy) || 1;
+  dx /= len;
+  dy /= len;
+
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  for(let i=0;i<40;i++){
-    sCtx.fillStyle = "rgba(255,255,255,0.25)";
-    sCtx.fillRect(
-      targetX + dx*0.3 + (Math.random()*20-10),
-      targetY + dy*0.3 + (Math.random()*20-10),
-      2,6
-    );
+  for(let i=0;i<60;i++){
+    let dist = Math.random()*100;
+
+    let x = nozzle.x + dx*dist + (Math.random()*10-5);
+    let y = nozzle.y + dy*dist + (Math.random()*10-5);
+
+    sCtx.fillStyle = "rgba(255,255,255,0.35)";
+    sCtx.fillRect(x, y, 2, 6);
   }
 }
 
@@ -208,7 +208,7 @@ function updateProgress(){
 
 /* 回転 */
 function rotateHose(x,y){
-  let nozzle = getNozzlePos();
+  const nozzle = getNozzlePos();
 
   let dx = x - nozzle.x;
   let dy = y - nozzle.y;
@@ -252,6 +252,5 @@ dirt.addEventListener("touchmove",(e)=>{
 },{passive:false});
 
 </script>
-
 </body>
 </html>
