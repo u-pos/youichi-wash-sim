@@ -1,27 +1,39 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>陽一ウォッシュシミュレーター</title>
 
 <style>
-body {
+
+/* ★ここが最重要（スクロール完全停止） */
+html, body {
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+body {
   background: #111;
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
-  overflow:hidden;
 }
 
+/* ゲーム本体 */
 .game{
   position:relative;
   width:360px;
   aspect-ratio:3/4;
 }
 
+/* 全レイヤー固定 */
 .game img,.game canvas{
   position:absolute;
   top:0;left:0;
@@ -33,6 +45,7 @@ body {
 #clean{z-index:1;}
 #dirt{z-index:2;}
 #spray{z-index:3;}
+
 #hose{
   z-index:4;
   width:80%;
@@ -40,7 +53,10 @@ body {
   transform-origin:80% 62%;
 }
 
-canvas{touch-action:none;}
+/* 追加：canvasのスクロール防止 */
+canvas{
+  touch-action:none;
+}
 
 #progress{
   position:absolute;
@@ -112,7 +128,7 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* ★DOM→Canvas変換 */
+/* DOM→Canvas変換 */
 function domToCanvas(x,y){
   const rect=dirt.getBoundingClientRect();
   return{
@@ -121,7 +137,7 @@ function domToCanvas(x,y){
   };
 }
 
-/* グリップ（DOM座標） */
+/* グリップ */
 function getGripDom(){
   const rect=hose.getBoundingClientRect();
   return{
@@ -130,7 +146,7 @@ function getGripDom(){
   };
 }
 
-/* ノズル（Canvas座標） */
+/* ノズル */
 function getNozzleCanvas(){
   const g=getGripDom();
   const c=domToCanvas(g.x,g.y);
@@ -152,7 +168,7 @@ function sprayFromNozzle(){
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
 
-    let dist=60+Math.random()*60; // ←長さUP
+    let dist=60+Math.random()*60;
 
     let x=n.x+Math.cos(dir)*dist;
     let y=n.y+Math.sin(dir)*dist;
@@ -165,7 +181,7 @@ function sprayFromNozzle(){
   dCtx.restore();
 }
 
-/* 水エフェクト（長さ2倍） */
+/* 水 */
 function drawSpray(){
   const n=getNozzleCanvas();
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -174,7 +190,7 @@ function drawSpray(){
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
 
-    let dist=Math.random()*240; // ←2倍
+    let dist=Math.random()*240;
 
     let x=n.x+Math.cos(dir)*dist;
     let y=n.y+Math.sin(dir)*dist;
@@ -197,7 +213,7 @@ function updateProgress(){
   bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
-/* ホース移動＆回転 */
+/* ホース */
 function updateHose(x,y){
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
@@ -235,6 +251,22 @@ dirt.addEventListener("touchmove",(e)=>{
   updateProgress();
 
 },{passive:false});
+
+/* ★最終ブロック（これが保険） */
+document.addEventListener("touchmove",function(e){
+  e.preventDefault();
+},{passive:false});
+
+/* ダブルタップズーム防止 */
+let lastTouchEnd=0;
+document.addEventListener("touchend",function(e){
+  const now=Date.now();
+  if(now-lastTouchEnd<=300){
+    e.preventDefault();
+  }
+  lastTouchEnd=now;
+},false);
+
 </script>
 </body>
 </html>
