@@ -30,15 +30,16 @@ body{
   object-fit:cover;
 }
 
-#bg{z-index:0;}
-#clean{z-index:1;}
+#bg{z-index:0; pointer-events:none;}
+#clean{z-index:1; pointer-events:none;}
 #dirt{z-index:2;}
-#spray{z-index:3;}
+#spray{z-index:3; pointer-events:none;}
 #hose{
   z-index:4;
   width:80%;
   position:absolute;
-  transform-origin:78% 58%; /* ←ここが超重要 */
+  pointer-events:none;
+  transform-origin:78% 58%;
 }
 
 canvas{touch-action:none;}
@@ -86,7 +87,6 @@ const sCtx=spray.getContext("2d");
 let isDown=false;
 let angle=0;
 
-// ★ここが調整ポイント
 const GRIP_X=0.78;
 const GRIP_Y=0.58;
 const NOZZLE_DIST=140;
@@ -122,34 +122,31 @@ function domToCanvas(x,y){
   };
 }
 
-/* グリップ位置（DOM） */
-function getGripDom(){
+/* ノズル座標 */
+function getNozzle(){
   const rect=hose.getBoundingClientRect();
-  return{
-    x:rect.left + rect.width*GRIP_X,
-    y:rect.top  + rect.height*GRIP_Y
+
+  const gx = rect.left + rect.width * GRIP_X;
+  const gy = rect.top  + rect.height * GRIP_Y;
+
+  const cx = (gx - dirt.getBoundingClientRect().left) * (dirt.width / dirt.getBoundingClientRect().width);
+  const cy = (gy - dirt.getBoundingClientRect().top) * (dirt.height / dirt.getBoundingClientRect().height);
+
+  return {
+    x: cx + Math.cos(angle) * NOZZLE_DIST,
+    y: cy + Math.sin(angle) * NOZZLE_DIST
   };
 }
 
-/* ノズル位置（Canvas） */
-function getNozzleCanvas(){
-  const g=getGripDom();
-  const c=domToCanvas(g.x,g.y);
-
-  return{
-    x:c.x + Math.cos(angle)*NOZZLE_DIST,
-    y:c.y + Math.sin(angle)*NOZZLE_DIST
-  };
-}
 /* 扇状削り */
 function sprayHit(){
-  const n=getNozzleCanvas();
+  const n=getNozzle();
 
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<15;i++){
-    let spread=(Math.random()-0.5)*0.4; // 扇角
+  for(let i=0;i<20;i++){
+    let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
     let dist=40 + Math.random()*80;
 
@@ -164,13 +161,13 @@ function sprayHit(){
   dCtx.restore();
 }
 
-/* 水エフェクト（扇状・長め） */
+/* 水エフェクト */
 function drawSpray(){
-  const n=getNozzleCanvas();
+  const n=getNozzle();
   sCtx.clearRect(0,0,spray.width,spray.height);
 
   for(let i=0;i<120;i++){
-    let spread=(Math.random()-0.5)*0.4;
+    let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
     let dist=Math.random()*260;
 
@@ -195,51 +192,47 @@ function updateProgress(){
   bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
-/* ホース操作 */
+/* ホース制御 */
 function updateHose(x,y){
-
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
 
-  // グリップ吸着
   hose.style.left=(x-gx)+"px";
   hose.style.top =(y-gy)+"px";
 
-  // ★修正：グリップ位置を取得
-  const grip = getGripDom();
+  const gripX = x;
+  const gripY = y;
 
-  const dx = x - grip.x;
-  const dy = y - grip.y;
+  const targetX = x + 1; // 進行方向を作る
+  const targetY = y;
 
-  angle = Math.atan2(dy,dx);
+  angle = Math.atan2(targetY-gripY,targetX-gripX);
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
-/* タッチ */
-dirt.addEventListener("touchstart",(e)=>{
+
+/* pointerイベントに統一 */
+dirt.addEventListener("pointerdown",(e)=>{
   isDown=true;
   sound.currentTime=0;
   sound.play();
-},{passive:false});
+});
 
-dirt.addEventListener("touchend",()=>{
+window.addEventListener("pointerup",()=>{
   isDown=false;
   sound.pause();
 });
 
-dirt.addEventListener("touchmove",(e)=>{
-  e.preventDefault();
+dirt.addEventListener("pointermove",(e)=>{
   if(!isDown) return;
 
-  const t=e.touches[0];
-
-  updateHose(t.clientX,t.clientY);
+  updateHose(e.clientX,e.clientY);
   sprayHit();
   drawSpray();
   updateProgress();
+});
 
-},{passive:false});
 </script>
 </body>
 </html>
