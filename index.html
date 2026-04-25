@@ -3,58 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陽一ウォッシュシミュレーター</title>
 
 <style>
-html, body {
+body{
   margin:0;
-  padding:0;
-  overflow:hidden;
-}
-
-/* ★固定やめる */
-body {
   background:#111;
   display:flex;
   justify-content:center;
   align-items:center;
   height:100vh;
+  overflow:hidden;
+  touch-action:none;
 }
 
-.game {
+.game{
   position:relative;
   width:360px;
   aspect-ratio:3/4;
 }
 
-/* ★レイヤー */
-.game img, .game canvas {
+.game img,.game canvas{
   position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
+  top:0;left:0;
+  width:100%;height:100%;
   object-fit:cover;
 }
 
-/* ★重要：イベント制御 */
-#bg, #clean, #spray, #hose {
-  pointer-events:none;
-}
-
-#dirt {
-  pointer-events:auto;
-  touch-action:none;
-}
-
-/* ホース */
-#hose {
+#bg{z-index:0;}
+#clean{z-index:1;}
+#dirt{z-index:2;}
+#spray{z-index:3;}
+#hose{
   z-index:4;
   width:80%;
-  transform-origin:80% 62%;
+  position:absolute;
+  transform-origin:78% 58%; /* ←ここが超重要 */
 }
 
-/* 進捗 */
-#progress {
+canvas{touch-action:none;}
+
+#progress{
   position:absolute;
   bottom:10px;
   left:10px;
@@ -62,8 +51,7 @@ body {
   height:10px;
   background:#333;
 }
-
-#bar {
+#bar{
   height:100%;
   width:0%;
   background:#4fc3f7;
@@ -82,133 +70,176 @@ body {
   <div id="progress"><div id="bar"></div></div>
 </div>
 
-<audio id="water" src="water.wav" loop></audio>
+<audio id="waterSound" src="water.wav" loop></audio>
 
 <script>
-const GRIP_X = 0.80;
-const GRIP_Y = 0.62;
-const dirt = document.getElementById("dirt");
-const spray = document.getElementById("spray");
-const clean = document.getElementById("clean");
-const hose = document.getElementById("hose");
-const bar = document.getElementById("bar");
-const sound = document.getElementById("water");
+const dirt=document.getElementById("dirt");
+const spray=document.getElementById("spray");
+const clean=document.getElementById("clean");
+const hose=document.getElementById("hose");
+const bar=document.getElementById("bar");
+const sound=document.getElementById("waterSound");
 
-const dCtx = dirt.getContext("2d");
-const sCtx = spray.getContext("2d");
+const dCtx=dirt.getContext("2d");
+const sCtx=spray.getContext("2d");
 
-let isDown = false;
-let angle = 0;
+let isDown=false;
+let angle=0;
 
-const dirtImg = new Image();
-dirtImg.src = "before.png";
+// ★ここが調整ポイント
+const GRIP_X=0.78;
+const GRIP_Y=0.58;
+const NOZZLE_DIST=140;
+
+const dirtImg=new Image();
+dirtImg.src="before.png";
 
 /* 初期化 */
-clean.onload = () => {
-  dirt.width = clean.naturalWidth;
-  dirt.height = clean.naturalHeight;
-  spray.width = clean.naturalWidth;
-  spray.height = clean.naturalHeight;
-  dCtx.drawImage(dirtImg,0,0);
-};
+function init(){
+  const w=clean.naturalWidth;
+  const h=clean.naturalHeight;
+  dirt.width=w;
+  dirt.height=h;
+  spray.width=w;
+  spray.height=h;
+  dCtx.drawImage(dirtImg,0,0,w,h);
+}
 
-/* 座標 */
-function getPos(e){
-  const rect = dirt.getBoundingClientRect();
-  return {
-    x:(e.clientX-rect.left)*(dirt.width/rect.width),
-    y:(e.clientY-rect.top)*(dirt.height/rect.height)
+let loaded=0;
+function ready(){
+  loaded++;
+  if(loaded===2) init();
+}
+clean.onload=ready;
+dirtImg.onload=ready;
+
+/* DOM→Canvas */
+function domToCanvas(x,y){
+  const rect=dirt.getBoundingClientRect();
+  return{
+    x:(x-rect.left)*(dirt.width/rect.width),
+    y:(y-rect.top)*(dirt.height/rect.height)
   };
 }
 
-/* ホース */
-function updateHose(e){
-
-  const rect = hose.getBoundingClientRect();
-
-  const gripX = rect.width * GRIP_X;
-  const gripY = rect.height * GRIP_Y;
-
-  // 指＝グリップにする
-  hose.style.left = (e.clientX - gripX) + "px";
-  hose.style.top  = (e.clientY - gripY) + "px";
-
-  // 角度計算
-  const dx = e.clientX - (e.clientX - gripX);
-  const dy = e.clientY - (e.clientY - gripY);
-
-  angle = Math.atan2(dy, dx);
-
-  hose.style.transform = `rotate(${angle * 180/Math.PI}deg)`;
+/* グリップ位置（DOM） */
+function getGripDom(){
+  const rect=hose.getBoundingClientRect();
+  return{
+    x:rect.left + rect.width*GRIP_X,
+    y:rect.top  + rect.height*GRIP_Y
+  };
 }
 
-/* 削り */
-function sprayHit(x,y){
+/* ノズル位置（Canvas） */
+function getNozzleCanvas(){
+  const g=getGripDom();
+  const c=domToCanvas(g.x,g.y);
+
+  return{
+    x:c.x + Math.cos(angle)*NOZZLE_DIST,
+    y:c.y + Math.sin(angle)*NOZZLE_DIST
+  };
+}
+
+/* 扇状削り */
+function sprayHit(){
+  const n=getNozzleCanvas();
+
+  dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<10;i++){
-    let a = angle + (Math.random()-0.5)*0.3;
-    let d = 60 + Math.random()*60;
+  for(let i=0;i<15;i++){
+    let spread=(Math.random()-0.5)*0.4; // 扇角
+    let dir=angle+spread;
+    let dist=40 + Math.random()*80;
 
-    let px = x + Math.cos(a)*d;
-    let py = y + Math.sin(a)*d;
+    let x=n.x + Math.cos(dir)*dist;
+    let y=n.y + Math.sin(dir)*dist;
 
     dCtx.beginPath();
-    dCtx.arc(px,py,12,0,Math.PI*2);
+    dCtx.arc(x,y,14,0,Math.PI*2);
     dCtx.fill();
   }
+
+  dCtx.restore();
 }
 
-/* 水 */
-function drawWater(x,y){
+/* 水エフェクト（扇状・長め） */
+function drawSpray(){
+  const n=getNozzleCanvas();
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  for(let i=0;i<80;i++){
-    let a = angle + (Math.random()-0.5)*0.3;
-    let d = Math.random()*200;
+  for(let i=0;i<120;i++){
+    let spread=(Math.random()-0.5)*0.4;
+    let dir=angle+spread;
+    let dist=Math.random()*260;
 
-    let px = x + Math.cos(a)*d;
-    let py = y + Math.sin(a)*d;
+    let x=n.x + Math.cos(dir)*dist;
+    let y=n.y + Math.sin(dir)*dist;
 
-    sCtx.fillStyle="rgba(255,255,255,0.3)";
-    sCtx.fillRect(px,py,2,6);
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
+    sCtx.fillRect(x,y,2,6);
   }
 }
 
 /* 進捗 */
-function progress(){
+function updateProgress(){
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+  let total=data.length/4;
   let clear=0;
 
   for(let i=3;i<data.length;i+=4){
     if(data[i]===0) clear++;
   }
 
-  bar.style.width=(clear/(data.length/4))*100+"%";
+  bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
-/* pointerイベント */
-dirt.addEventListener("pointerdown",(e)=>{
-  isDown=true;
-  sound.play();
-});
+/* ホース操作 */
+function updateHose(x,y){
 
-window.addEventListener("pointerup",()=>{
+  const rect=hose.getBoundingClientRect();
+  const gx=rect.width*GRIP_X;
+  const gy=rect.height*GRIP_Y;
+
+  // グリップを指に吸着
+  hose.style.left=(x-gx)+"px";
+  hose.style.top =(y-gy)+"px";
+
+  // 回転（グリップ→指方向）
+  const dx = x - (x-gx);
+  const dy = y - (y-gy);
+
+  angle = Math.atan2(dy,dx);
+
+  hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
+}
+
+/* タッチ */
+dirt.addEventListener("touchstart",(e)=>{
+  isDown=true;
+  sound.currentTime=0;
+  sound.play();
+},{passive:false});
+
+dirt.addEventListener("touchend",()=>{
   isDown=false;
   sound.pause();
 });
 
-dirt.addEventListener("pointermove",(e)=>{
+dirt.addEventListener("touchmove",(e)=>{
+  e.preventDefault();
   if(!isDown) return;
 
-  const p = getPos(e);
+  const t=e.touches[0];
 
-  updateHose(e);
-  sprayHit(p.x,p.y);
-  drawWater(p.x,p.y);
-  progress();
-});
+  updateHose(t.clientX,t.clientY);
+  sprayHit();
+  drawSpray();
+  updateProgress();
+
+},{passive:false});
 </script>
-
 </body>
 </html>
