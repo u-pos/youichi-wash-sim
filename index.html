@@ -85,6 +85,8 @@ body {
 <audio id="water" src="water.wav" loop></audio>
 
 <script>
+const GRIP_X = 0.80;
+const GRIP_Y = 0.62;
 const dirt = document.getElementById("dirt");
 const spray = document.getElementById("spray");
 const clean = document.getElementById("clean");
@@ -121,15 +123,23 @@ function getPos(e){
 
 /* ホース */
 function updateHose(e){
-  hose.style.left = (e.clientX-120)+"px";
-  hose.style.top  = (e.clientY-120)+"px";
 
-  angle = Math.atan2(
-    e.clientY - window.innerHeight/2,
-    e.clientX - window.innerWidth/2
-  );
+  const rect = hose.getBoundingClientRect();
 
-  hose.style.transform = `rotate(${angle*180/Math.PI}deg)`;
+  const gripX = rect.width * GRIP_X;
+  const gripY = rect.height * GRIP_Y;
+
+  // 指＝グリップにする
+  hose.style.left = (e.clientX - gripX) + "px";
+  hose.style.top  = (e.clientY - gripY) + "px";
+
+  // 角度計算
+  const dx = e.clientX - (e.clientX - gripX);
+  const dy = e.clientY - (e.clientY - gripY);
+
+  angle = Math.atan2(dy, dx);
+
+  hose.style.transform = `rotate(${angle * 180/Math.PI}deg)`;
 }
 
 /* 削り */
