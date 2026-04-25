@@ -40,11 +40,9 @@ body {
 #hose {
   z-index:4;
   pointer-events:none;
-  width: 55%;
-  right: -20%;
-  bottom: -10%;
+  width: 80%;
   position:absolute;
-  transform-origin: 10% 50%;
+  transform-origin: 75% 65%; /* ←グリップ位置 */
 }
 
 canvas { touch-action:none; }
@@ -92,7 +90,12 @@ const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
-let power = 16;
+let power = 14;
+
+const GRIP_X = 0.75;
+const GRIP_Y = 0.65;
+const NOZZLE_OFFSET = 120;
+const SPRAY_OFFSET = 60;
 
 const dirtImg = new Image();
 dirtImg.src = "before.png";
@@ -125,35 +128,39 @@ function getPos(e){
   return {x,y};
 }
 
-/* ノズル位置 */
-function getNozzlePos(){
+/* グリップ位置 */
+function getGripPos(){
   const rect = hose.getBoundingClientRect();
   return {
-    x: rect.left + rect.width * 0.08,
-    y: rect.top + rect.height * 0.5
+    x: rect.left + rect.width * GRIP_X,
+    y: rect.top + rect.height * GRIP_Y
   };
 }
 
-/* 削り（ノズル→方向） */
-function sprayFromNozzle(targetX,targetY){
+/* ノズル位置（角度付き） */
+function getNozzlePos(angle){
+  const grip = getGripPos();
 
-  const nozzle = getNozzlePos();
+  return {
+    x: grip.x + Math.cos(angle) * NOZZLE_OFFSET,
+    y: grip.y + Math.sin(angle) * NOZZLE_OFFSET
+  };
+}
 
-  let dx = targetX - nozzle.x;
-  let dy = targetY - nozzle.y;
+/* 削り */
+function sprayFromNozzle(targetX,targetY,angle){
 
-  let len = Math.sqrt(dx*dx + dy*dy) || 1;
-  dx /= len;
-  dy /= len;
+  const nozzle = getNozzlePos(angle);
+
+  const tx = nozzle.x + Math.cos(angle) * SPRAY_OFFSET;
+  const ty = nozzle.y + Math.sin(angle) * SPRAY_OFFSET;
 
   dCtx.save();
   dCtx.globalCompositeOperation = "destination-out";
 
   for(let i=0;i<10;i++){
-    let dist = Math.random()*60;
-
-    let x = nozzle.x + dx*dist + (Math.random()*10-5);
-    let y = nozzle.y + dy*dist + (Math.random()*10-5);
+    let x = tx + (Math.random()*20-10);
+    let y = ty + (Math.random()*20-10);
 
     dCtx.beginPath();
     dCtx.arc(x, y, power, 0, Math.PI*2);
@@ -164,27 +171,20 @@ function sprayFromNozzle(targetX,targetY){
 }
 
 /* 水エフェクト */
-function drawSpray(targetX,targetY){
+function drawSpray(angle){
 
-  const nozzle = getNozzlePos();
-
-  let dx = targetX - nozzle.x;
-  let dy = targetY - nozzle.y;
-
-  let len = Math.sqrt(dx*dx + dy*dy) || 1;
-  dx /= len;
-  dy /= len;
+  const nozzle = getNozzlePos(angle);
 
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  for(let i=0;i<60;i++){
+  for(let i=0;i<50;i++){
     let dist = Math.random()*100;
 
-    let x = nozzle.x + dx*dist + (Math.random()*10-5);
-    let y = nozzle.y + dy*dist + (Math.random()*10-5);
+    let x = nozzle.x + Math.cos(angle)*dist + (Math.random()*10-5);
+    let y = nozzle.y + Math.sin(angle)*dist + (Math.random()*10-5);
 
-    sCtx.fillStyle = "rgba(255,255,255,0.35)";
-    sCtx.fillRect(x, y, 2, 6);
+    sCtx.fillStyle = "rgba(255,255,255,0.4)";
+    sCtx.fillRect(x,y,2,6);
   }
 }
 
@@ -206,15 +206,25 @@ function updateProgress(){
   }
 }
 
-/* 回転 */
-function rotateHose(x,y){
-  const nozzle = getNozzlePos();
+/* 回転＋位置追従 */
+function updateHose(x,y){
 
-  let dx = x - nozzle.x;
-  let dy = y - nozzle.y;
+  const rect = hose.getBoundingClientRect();
 
-  let angle = Math.atan2(dy,dx) * 180/Math.PI;
-  hose.style.transform = `rotate(${angle}deg)`;
+  const gripX = rect.width * GRIP_X;
+  const gripY = rect.height * GRIP_Y;
+
+  hose.style.left = (x - gripX) + "px";
+  hose.style.top = (y - gripY) + "px";
+
+  let dx = x - (x - gripX);
+  let dy = y - (y - gripY);
+
+  let angle = Math.atan2(dy,dx);
+
+  hose.style.transform = `rotate(${angle*180/Math.PI}deg)`;
+
+  return angle;
 }
 
 /* 音 */
@@ -243,11 +253,11 @@ dirt.addEventListener("touchmove",(e)=>{
 
   let p = getPos(e);
 
-  sprayFromNozzle(p.x,p.y);
-  drawSpray(p.x,p.y);
-  updateProgress();
+  let angle = updateHose(e.touches[0].clientX, e.touches[0].clientY);
 
-  rotateHose(e.touches[0].clientX,e.touches[0].clientY);
+  sprayFromNozzle(p.x,p.y,angle);
+  drawSpray(angle);
+  updateProgress();
 
 },{passive:false});
 
