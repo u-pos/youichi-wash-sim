@@ -66,92 +66,75 @@ body {
 </div>
 <audio id="waterSound" src="water.mp3" preload="auto" loop></audio>
 <script>
-const waterSound = document.getElementById("waterSound");
-
-// スマホ対策（最初のタッチで再生許可）
-window.addEventListener("touchstart", () => {
-  waterSound.play().then(() => {
-    waterSound.pause();
-    waterSound.currentTime = 0;
-  }).catch(()=>{});
-}, { once: true });
-
-// 押したとき
-function startSound() {
-  waterSound.currentTime = 0;
-  waterSound.play();
-}
-
-// 離したとき
-function stopSound() {
-  waterSound.pause();
-}
 const dirt = document.getElementById("dirt");
 const spray = document.getElementById("spray");
 const clean = document.getElementById("clean");
 const bar = document.getElementById("bar");
+const waterSound = document.getElementById("waterSound");
 
 const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
-let img = new Image();
-img.src = "before.png";
-
 let isDown = false;
 let radius = 25;
-
-// 位置オフセット（ここで“持ち手位置”調整）
 let offsetX = 20;
 let offsetY = 20;
 
-Promise.all([
-  new Promise(res => clean.onload = res),
-  new Promise(res => img.onload = res)
-]).then(() => {
+// 画像ロード（確実に）
+const dirtImg = new Image();
+dirtImg.src = "before.png";
 
+// 初期化
+function init() {
   const w = clean.naturalWidth;
   const h = clean.naturalHeight;
 
   dirt.width = w;
   dirt.height = h;
-
   spray.width = w;
   spray.height = h;
 
+  // ★ここが重要（必ず汚れを描く）
   dCtx.clearRect(0, 0, w, h);
-  dCtx.drawImage(img, 0, 0, w, h);
+  dCtx.globalCompositeOperation = "source-over";
+  dCtx.drawImage(dirtImg, 0, 0, w, h);
+}
 
-});
+// 両方ロード完了で実行
+let loaded = 0;
+function checkLoaded() {
+  loaded++;
+  if (loaded === 2) init();
+}
 
-// タッチ・マウス統一
+clean.onload = checkLoaded;
+dirtImg.onload = checkLoaded;
+
+// 座標
 function getPos(e) {
   const rect = dirt.getBoundingClientRect();
   let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
   let y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
 
-  // スケール補正
   x *= dirt.width / rect.width;
   y *= dirt.height / rect.height;
 
   return { x, y };
 }
 
+// 削る
 function erase(x, y) {
   dCtx.save();
-
   dCtx.globalCompositeOperation = "destination-out";
-
   dCtx.beginPath();
   dCtx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
   dCtx.fill();
-
   dCtx.restore();
 }
 
+// スプレー
 function drawSpray(x, y) {
   sCtx.clearRect(0, 0, spray.width, spray.height);
-
-  sCtx.globalCompositeOperation = "source-over"; // ←重要
 
   let sx = x + offsetX;
   let sy = y + offsetY;
@@ -165,6 +148,8 @@ function drawSpray(x, y) {
   sCtx.arc(sx, sy, radius, 0, Math.PI * 2);
   sCtx.fill();
 }
+
+// 進捗
 function updateProgress() {
   const pixels = dCtx.getImageData(0, 0, dirt.width, dirt.height).data;
   let total = pixels.length / 4;
@@ -176,35 +161,54 @@ function updateProgress() {
 
   let percent = Math.floor((clear / total) * 100);
   bar.style.width = percent + "%";
+
+  if (percent > 95) {
+    alert("洗浄完了！");
+  }
+}
+
+// 音
+function startSound() {
+  waterSound.currentTime = 0;
+  waterSound.play();
+}
+function stopSound() {
+  waterSound.pause();
 }
 
 // イベント
 ["mousedown","touchstart"].forEach(e=>{
   dirt.addEventListener(e, ()=>{
     isDown = true;
-    startSound(); // ←追加
+    startSound();
   });
 });
 
 ["mouseup","touchend"].forEach(e=>{
   window.addEventListener(e, ()=>{
     isDown = false;
-    stopSound(); // ←追加
+    stopSound();
   });
 });
 
 ["mousemove","touchmove"].forEach(e=>{
-dirt.addEventListener(e, ev=>{
-  ev.preventDefault(); // ←最初に移動
+  dirt.addEventListener(e, ev=>{
+    ev.preventDefault();
+    if (!isDown) return;
 
-  if (!isDown) return;
+    let {x,y} = getPos(ev);
 
-  let {x,y} = getPos(ev);
+    erase(x,y);
+    drawSpray(x,y);
+    updateProgress();
+  }, { passive:false });
+});
 
-  erase(x,y);
-  drawSpray(x,y);
-  updateProgress();
+// スクロール防止
+document.body.addEventListener("touchmove", e => {
+  e.preventDefault();
 }, { passive:false });
+
 </script>
 
 </body>
