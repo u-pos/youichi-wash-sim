@@ -25,11 +25,11 @@ body {
 .game img,
 .game canvas {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
 #bg { z-index:0; pointer-events:none; }
@@ -42,7 +42,7 @@ body {
   pointer-events:none;
   width:80%;
   position:absolute;
-  transform-origin: 70% 68%;
+  transform-origin: 78% 66%;
 }
 
 canvas { touch-action:none; }
@@ -82,20 +82,22 @@ canvas { touch-action:none; }
 const dirt = document.getElementById("dirt");
 const spray = document.getElementById("spray");
 const clean = document.getElementById("clean");
-const bar = document.getElementById("bar");
 const hose = document.getElementById("hose");
+const bar = document.getElementById("bar");
 const sound = document.getElementById("waterSound");
 
 const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
+let angle = 0;
 let power = 14;
 
-/* ★ここが重要（今回の画像に最適化済み） */
-const GRIP_X = 0.68;
-const GRIP_Y = 0.72;
+const GRIP_X = 0.80;
+const GRIP_Y = 0.62;
 const NOZZLE_OFFSET = 90;
+
+let lastTouchDist = null;
 
 const dirtImg = new Image();
 dirtImg.src = "before.png";
@@ -113,7 +115,7 @@ function init(){
   dCtx.drawImage(dirtImg,0,0,w,h);
 }
 
-let loaded = 0;
+let loaded=0;
 function ready(){
   loaded++;
   if(loaded===2) init();
@@ -121,15 +123,16 @@ function ready(){
 clean.onload = ready;
 dirtImg.onload = ready;
 
-/* タッチ座標 */
-function getPos(e){
+/* 座標 */
+function getPos(touch){
   const rect = dirt.getBoundingClientRect();
-  let x = (e.touches[0].clientX - rect.left) * (dirt.width/rect.width);
-  let y = (e.touches[0].clientY - rect.top) * (dirt.height/rect.height);
-  return {x,y};
+  return {
+    x:(touch.clientX - rect.left)*(dirt.width/rect.width),
+    y:(touch.clientY - rect.top)*(dirt.height/rect.height)
+  };
 }
 
-/* グリップ位置 */
+/* グリップ */
 function getGripPos(){
   const rect = hose.getBoundingClientRect();
   return {
@@ -138,137 +141,124 @@ function getGripPos(){
   };
 }
 
-/* ノズル位置 */
-function getNozzlePos(angle){
-  const grip = getGripPos();
-
+/* ノズル */
+function getNozzlePos(){
+  const g = getGripPos();
   return {
-    x: grip.x + Math.cos(angle) * NOZZLE_OFFSET,
-    y: grip.y + Math.sin(angle) * NOZZLE_OFFSET
+    x: g.x + Math.cos(angle)*NOZZLE_OFFSET,
+    y: g.y + Math.sin(angle)*NOZZLE_OFFSET
   };
 }
 
-/* 扇状削り */
-function sprayFromNozzle(angle){
-
-  const nozzle = getNozzlePos(angle);
+/* 削り */
+function sprayFromNozzle(){
+  const n = getNozzlePos();
 
   dCtx.save();
-  dCtx.globalCompositeOperation = "destination-out";
+  dCtx.globalCompositeOperation="destination-out";
 
   for(let i=0;i<12;i++){
+    let spread=(Math.random()-0.5)*0.35;
+    let dir=angle+spread;
 
-    let spread = (Math.random()-0.5)*0.35;
-    let dir = angle + spread;
+    let dist=40+Math.random()*50;
 
-    let dist = 40 + Math.random()*50;
-
-    let x = nozzle.x + Math.cos(dir)*dist;
-    let y = nozzle.y + Math.sin(dir)*dist;
+    let x=n.x+Math.cos(dir)*dist;
+    let y=n.y+Math.sin(dir)*dist;
 
     dCtx.beginPath();
-    dCtx.arc(x, y, power, 0, Math.PI*2);
+    dCtx.arc(x,y,power,0,Math.PI*2);
     dCtx.fill();
   }
 
   dCtx.restore();
 }
 
-/* 水エフェクト */
-function drawSpray(angle){
-
-  const nozzle = getNozzlePos(angle);
-
+/* 水 */
+function drawSpray(){
+  const n=getNozzlePos();
   sCtx.clearRect(0,0,spray.width,spray.height);
 
   for(let i=0;i<80;i++){
+    let spread=(Math.random()-0.5)*0.35;
+    let dir=angle+spread;
 
-    let spread = (Math.random()-0.5)*0.35;
-    let dir = angle + spread;
+    let dist=Math.random()*120;
 
-    let dist = Math.random()*120;
+    let x=n.x+Math.cos(dir)*dist;
+    let y=n.y+Math.sin(dir)*dist;
 
-    let x = nozzle.x + Math.cos(dir)*dist;
-    let y = nozzle.y + Math.sin(dir)*dist;
-
-    sCtx.fillStyle = "rgba(255,255,255,0.35)";
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
   }
 }
 
 /* 進捗 */
 function updateProgress(){
-  const data = dCtx.getImageData(0,0,dirt.width,dirt.height).data;
-  let total = data.length/4;
-  let clear = 0;
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+  let total=data.length/4;
+  let clear=0;
 
   for(let i=3;i<data.length;i+=4){
     if(data[i]===0) clear++;
   }
 
-  let p = Math.floor(clear/total*100);
-  bar.style.width = p+"%";
-
-  if(p>95){
-    alert("洗浄完了！");
-  }
+  let p=Math.floor(clear/total*100);
+  bar.style.width=p+"%";
 }
 
-/* ホース更新（ここが最重要） */
-function updateHose(x,y){
-
+/* ホース位置 */
+function moveHose(x,y){
   const rect = hose.getBoundingClientRect();
 
-  const gripX = rect.width * GRIP_X;
-  const gripY = rect.height * GRIP_Y;
+  const gx = rect.width*GRIP_X;
+  const gy = rect.height*GRIP_Y;
 
-  hose.style.left = (x - gripX) + "px";
-  hose.style.top = (y - gripY) + "px";
+  hose.style.left=(x-gx)+"px";
+  hose.style.top=(y-gy)+"px";
 
-  const grip = getGripPos();
-
-  let dx = x - grip.x;
-  let dy = y - grip.y;
-
-  let angle = Math.atan2(dy,dx);
-
-  hose.style.transform = `rotate(${angle * 180/Math.PI}deg)`;
-
-  return angle;
+  hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
 
-/* 音 */
-function startSound(){
-  sound.currentTime = 0;
-  sound.play();
-}
-function stopSound(){
-  sound.pause();
-}
-
-/* タッチ */
+/* タッチ処理 */
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
-  startSound();
+  sound.play();
 },{passive:false});
 
 dirt.addEventListener("touchend",()=>{
   isDown=false;
-  stopSound();
+  sound.pause();
+  lastTouchDist=null;
 });
 
 dirt.addEventListener("touchmove",(e)=>{
   e.preventDefault();
+
   if(!isDown) return;
 
-  let angle = updateHose(e.touches[0].clientX, e.touches[0].clientY);
+  // 1本指 → 移動
+  if(e.touches.length===1){
+    let t=e.touches[0];
+    moveHose(t.clientX,t.clientY);
+  }
 
-  sprayFromNozzle(angle);
-  drawSpray(angle);
+  // 2本指 → 回転
+  if(e.touches.length===2){
+    let t1=e.touches[0];
+    let t2=e.touches[1];
+
+    let dx=t2.clientX-t1.clientX;
+    let dy=t2.clientY-t1.clientY;
+
+    angle=Math.atan2(dy,dx);
+  }
+
+  sprayFromNozzle();
+  drawSpray();
   updateProgress();
 
 },{passive:false});
-
 </script>
 </body>
 </html>
