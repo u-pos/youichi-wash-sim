@@ -12,6 +12,9 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  touch-action: none;
+  overscroll-behavior: none;
+}
 }
 
 .game {
@@ -173,17 +176,17 @@ function updateProgress() {
 });
 
 ["mousemove","touchmove"].forEach(e=>{
-  dirt.addEventListener(e, ev=>{
-    if (!isDown) return;
-    ev.preventDefault();
+dirt.addEventListener(e, ev=>{
+  ev.preventDefault(); // ←最初に移動
 
-    let {x,y} = getPos(ev);
+  if (!isDown) return;
 
-    erase(x,y);
-    drawSpray(x,y);
-    updateProgress();
-  }, { passive:false });
-});
+  let {x,y} = getPos(ev);
+
+  erase(x,y);
+  drawSpray(x,y);
+  updateProgress();
+}, { passive:false });
 </script>
 
 </body>
