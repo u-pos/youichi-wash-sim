@@ -253,9 +253,11 @@ dirt.addEventListener("touchmove",(e)=>{
 },{passive:false});
 
 /* ★最終ブロック（これが保険） */
-document.addEventListener("touchmove",function(e){
-  e.preventDefault();
-},{passive:false});
+document.body.addEventListener("touchmove", function(e){
+  if (!e.target.closest(".game")) {
+    e.preventDefault();
+  }
+}, { passive:false });
 
 /* ダブルタップズーム防止 */
 let lastTouchEnd=0;
