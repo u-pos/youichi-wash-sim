@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -6,59 +6,41 @@
 <title>陽一ウォッシュシミュレーター</title>
 
 <style>
-
-/* ★ここが最重要（スクロール完全停止） */
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  touch-action: none;
-  overscroll-behavior: none;
-  position: fixed;
-  width: 100%;
-  height: 100%;
+html,body{
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  touch-action:none;
+  position:fixed;
+  width:100%;
+  height:100%;
 }
-
-body {
-  background: #111;
+body{
+  background:#111;
   display:flex;
   justify-content:center;
   align-items:center;
 }
-
-/* ゲーム本体 */
 .game{
   position:relative;
   width:360px;
   aspect-ratio:3/4;
 }
-
-/* 全レイヤー固定 */
 .game img,.game canvas{
   position:absolute;
   top:0;left:0;
   width:100%;height:100%;
   object-fit:cover;
 }
-
 #bg{z-index:0;}
 #clean{z-index:1;}
-#dirt{z-index:2;
-     touch-action: none;}
+#dirt{z-index:2;}
 #spray{z-index:3;}
-
 #hose{
   z-index:4;
   width:80%;
-  position:absolute;
   transform-origin:80% 62%;
 }
-
-/* 追加：canvasのスクロール防止 */
-canvas{
-  touch-action:none;
-}
-
 #progress{
   position:absolute;
   bottom:10px;
@@ -103,14 +85,14 @@ let isDown=false;
 let angle=0;
 let power=14;
 
-const GRIP_X=0.80;
-const GRIP_Y=0.62;
-const NOZZLE_OFFSET=85;
+// ★ここが重要（調整値）
+const GRIP_OFFSET_X=0;
+const GRIP_OFFSET_Y=0;
+const NOZZLE_DIST=120;
 
 const dirtImg=new Image();
 dirtImg.src="before.png";
 
-/* 初期化 */
 function init(){
   const w=clean.naturalWidth;
   const h=clean.naturalHeight;
@@ -129,53 +111,41 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* DOM→Canvas変換 */
-function domToCanvas(x,y){
+/* 座標変換 */
+function getCanvasPos(e){
   const rect=dirt.getBoundingClientRect();
   return{
-    x:(x-rect.left)*(dirt.width/rect.width),
-    y:(y-rect.top)*(dirt.height/rect.height)
-  };
-}
-
-/* グリップ */
-function getGripDom(){
-  const rect=hose.getBoundingClientRect();
-  return{
-    x:rect.left+rect.width*GRIP_X,
-    y:rect.top+rect.height*GRIP_Y
+    x:(e.clientX-rect.left)*(dirt.width/rect.width),
+    y:(e.clientY-rect.top)*(dirt.height/rect.height)
   };
 }
 
 /* ノズル */
-function getNozzleCanvas(){
-  const g=getGripDom();
-  const c=domToCanvas(g.x,g.y);
-
+function getNozzle(x,y){
   return{
-    x:c.x+Math.cos(angle)*NOZZLE_OFFSET,
-    y:c.y+Math.sin(angle)*NOZZLE_OFFSET
+    x:x+Math.cos(angle)*NOZZLE_DIST,
+    y:y+Math.sin(angle)*NOZZLE_DIST
   };
 }
 
 /* 削り */
-function sprayFromNozzle(){
-  const n=getNozzleCanvas();
+function sprayFrom(x,y){
+  const n=getNozzle(x,y);
 
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
   for(let i=0;i<12;i++){
-    let spread=(Math.random()-0.5)*0.35;
+    let spread=(Math.random()-0.5)*0.3;
     let dir=angle+spread;
 
     let dist=60+Math.random()*60;
 
-    let x=n.x+Math.cos(dir)*dist;
-    let y=n.y+Math.sin(dir)*dist;
+    let px=n.x+Math.cos(dir)*dist;
+    let py=n.y+Math.sin(dir)*dist;
 
     dCtx.beginPath();
-    dCtx.arc(x,y,power,0,Math.PI*2);
+    dCtx.arc(px,py,power,0,Math.PI*2);
     dCtx.fill();
   }
 
@@ -183,21 +153,22 @@ function sprayFromNozzle(){
 }
 
 /* 水 */
-function drawSpray(){
-  const n=getNozzleCanvas();
+function drawSpray(x,y){
+  const n=getNozzle(x,y);
+
   sCtx.clearRect(0,0,spray.width,spray.height);
 
   for(let i=0;i<100;i++){
-    let spread=(Math.random()-0.5)*0.35;
+    let spread=(Math.random()-0.5)*0.3;
     let dir=angle+spread;
 
     let dist=Math.random()*240;
 
-    let x=n.x+Math.cos(dir)*dist;
-    let y=n.y+Math.sin(dir)*dist;
+    let px=n.x+Math.cos(dir)*dist;
+    let py=n.y+Math.sin(dir)*dist;
 
     sCtx.fillStyle="rgba(255,255,255,0.4)";
-    sCtx.fillRect(x,y,2,6);
+    sCtx.fillRect(px,py,2,6);
   }
 }
 
@@ -215,36 +186,27 @@ function updateProgress(){
 }
 
 /* ホース */
-function updateHose(x,y){
+function updateHose(e){
+  const rect=dirt.getBoundingClientRect();
 
-  const rect=hose.getBoundingClientRect();
+  const x=e.clientX;
+  const y=e.clientY;
 
-  const gx=rect.width*GRIP_X;
-  const gy=rect.height*GRIP_Y;
+  // グリップ吸着
+  hose.style.left=(x-rect.left-80)+"px";
+  hose.style.top=(y-rect.top-80)+"px";
 
-  // ① 位置
-  hose.style.left=(x-gx)+"px";
-  hose.style.top=(y-gy)+"px";
-
-  // ② 角度（画面中央基準に変更）
-  const centerX=window.innerWidth/2;
-  const centerY=window.innerHeight/2;
-
-  angle=Math.atan2(y-centerY, x-centerX);
-
+  // 角度
+  angle=Math.atan2(y-window.innerHeight/2,x-window.innerWidth/2);
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
+
+  return getCanvasPos(e);
 }
 
-/* タッチ */
+/* イベント */
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   sound.play();
-
-  const t=e.touches[0];
-
-  // ★これ追加
-  updateHose(t.clientX,t.clientY);
-
 },{passive:false});
 
 dirt.addEventListener("touchend",()=>{
@@ -258,30 +220,13 @@ dirt.addEventListener("touchmove",(e)=>{
 
   const t=e.touches[0];
 
-  updateHose(t.clientX,t.clientY);
-  sprayFromNozzle();
-  drawSpray();
+  const pos=updateHose(t);
+
+  sprayFrom(pos.x,pos.y);
+  drawSpray(pos.x,pos.y);
   updateProgress();
 
 },{passive:false});
-
-/* ★最終ブロック（これが保険） */
-document.body.addEventListener("touchmove", function(e){
-  if (!e.target.closest(".game")) {
-    e.preventDefault();
-  }
-}, { passive:false });
-
-/* ダブルタップズーム防止 */
-let lastTouchEnd=0;
-document.addEventListener("touchend",function(e){
-  const now=Date.now();
-  if(now-lastTouchEnd<=300){
-    e.preventDefault();
-  }
-  lastTouchEnd=now;
-},false);
-
 </script>
 </body>
 </html>
