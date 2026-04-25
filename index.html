@@ -104,7 +104,11 @@ let radius = 25;
 let offsetX = 20;
 let offsetY = 20;
 
-img.onload = () => {
+Promise.all([
+  new Promise(res => clean.onload = res),
+  new Promise(res => img.onload = res)
+]).then(() => {
+
   const w = clean.naturalWidth;
   const h = clean.naturalHeight;
 
@@ -114,8 +118,10 @@ img.onload = () => {
   spray.width = w;
   spray.height = h;
 
-  dCtx.drawImage(img, 0, 0, w, h); // ←ここで確実に描画
-};
+  dCtx.clearRect(0, 0, w, h);
+  dCtx.drawImage(img, 0, 0, w, h);
+
+});
 
 // タッチ・マウス統一
 function getPos(e) {
