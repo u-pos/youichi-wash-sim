@@ -16,7 +16,6 @@ body {
   overflow: hidden;
 }
 
-/* レイヤー */
 .game {
   position: relative;
   width: 360px;
@@ -31,19 +30,14 @@ body {
   width: 100%;
 }
 
-/* タッチ制御 */
-#bg, #clean { pointer-events: none; }
-#spray { pointer-events: none; }
+#bg { z-index: 0; pointer-events:none; }
+#clean { z-index: 1; pointer-events:none; }
+#dirt { z-index: 2; }
+#spray { z-index: 3; pointer-events:none; }
+
 canvas { touch-action: none; }
 
-/* 表示順 */
-#bg { z-index: 0; }
-#clean { z-index: 1; }
-#dirt { z-index: 2; }
-#spray { z-index: 3; }
-#progress { z-index: 4; }
-
-/* 進捗バー */
+/* 進捗 */
 #progress {
   position: absolute;
   bottom: 10px;
@@ -52,7 +46,6 @@ canvas { touch-action: none; }
   height: 10px;
   background: #333;
   border-radius: 5px;
-  overflow: hidden;
 }
 #bar {
   height: 100%;
@@ -86,11 +79,11 @@ const dCtx = dirt.getContext("2d");
 const sCtx = spray.getContext("2d");
 
 let isDown = false;
-let radius = 25;
-let offsetX = 20;
-let offsetY = 20;
+let radius = 20;
 
-/* 汚れ画像 */
+let prevX = 0;
+let prevY = 0;
+
 const dirtImg = new Image();
 dirtImg.src = "before.png";
 
@@ -104,11 +97,9 @@ function init() {
   spray.width = w;
   spray.height = h;
 
-  dCtx.clearRect(0,0,w,h);
   dCtx.drawImage(dirtImg, 0, 0, w, h);
 }
 
-/* 両方読み込み後 */
 let loaded = 0;
 function ready() {
   loaded++;
@@ -117,7 +108,7 @@ function ready() {
 clean.onload = ready;
 dirtImg.onload = ready;
 
-/* 座標取得 */
+/* 座標 */
 function getPos(e) {
   const rect = dirt.getBoundingClientRect();
   let x = (e.touches[0].clientX - rect.left) * (dirt.width / rect.width);
@@ -125,13 +116,18 @@ function getPos(e) {
   return {x,y};
 }
 
-/* 削る */
-function erase(x, y) {
+/* 水で削る（線） */
+function sprayLine(x, y, px, py) {
   dCtx.save();
   dCtx.globalCompositeOperation = "destination-out";
+  dCtx.lineWidth = radius * 2;
+  dCtx.lineCap = "round";
+
   dCtx.beginPath();
-  dCtx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
-  dCtx.fill();
+  dCtx.moveTo(px, py);
+  dCtx.lineTo(x, y);
+  dCtx.stroke();
+
   dCtx.restore();
 }
 
@@ -139,17 +135,15 @@ function erase(x, y) {
 function drawSpray(x, y) {
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  let sx = x + offsetX;
-  let sy = y + offsetY;
-
-  let g = sCtx.createRadialGradient(sx, sy, 0, sx, sy, radius);
-  g.addColorStop(0, "rgba(255,255,255,0.6)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-
-  sCtx.fillStyle = g;
-  sCtx.beginPath();
-  sCtx.arc(sx, sy, radius, 0, Math.PI * 2);
-  sCtx.fill();
+  for (let i = 0; i < 20; i++) {
+    sCtx.fillStyle = "rgba(255,255,255,0.2)";
+    sCtx.fillRect(
+      x + Math.random()*30-15,
+      y + Math.random()*30-15,
+      2,
+      6
+    );
+  }
 }
 
 /* 進捗 */
@@ -183,6 +177,11 @@ function stopSound() {
 dirt.addEventListener("touchstart", (e) => {
   isDown = true;
   startSound();
+
+  let {x,y} = getPos(e);
+  prevX = x;
+  prevY = y;
+
 }, { passive:false });
 
 dirt.addEventListener("touchend", () => {
@@ -196,9 +195,13 @@ dirt.addEventListener("touchmove", (e) => {
 
   let {x,y} = getPos(e);
 
-  erase(x,y);
-  drawSpray(x,y);
+  sprayLine(x, y, prevX, prevY);
+  drawSpray(x, y);
   updateProgress();
+
+  prevX = x;
+  prevY = y;
+
 }, { passive:false });
 
 </script>
