@@ -15,7 +15,12 @@ body {
   touch-action: none;
   overscroll-behavior: none;
 }
-
+#bg, #clean {
+  pointer-events: none;
+}
+  #dirt, #spray {
+  pointer-events: auto;
+}
 .game {
   position: relative;
   width: 360px;
@@ -192,7 +197,7 @@ function stopSound() {
 });
 
 ["mousemove","touchmove"].forEach(e=>{
-  dirt.addEventListener(e, ev=>{
+  spray.addEventListener(e, ev=>{
     ev.preventDefault();
     if (!isDown) return;
 
