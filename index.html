@@ -141,7 +141,6 @@ function getNozzleCanvas(){
     y:c.y + Math.sin(angle)*NOZZLE_DIST
   };
 }
-
 /* 扇状削り */
 function sprayHit(){
   const n=getNozzleCanvas();
@@ -203,19 +202,20 @@ function updateHose(x,y){
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
 
-  // グリップを指に吸着
+  // グリップ吸着
   hose.style.left=(x-gx)+"px";
   hose.style.top =(y-gy)+"px";
 
-  // 回転（グリップ→指方向）
-  const dx = x - (x-gx);
-  const dy = y - (y-gy);
+  // ★修正：グリップ位置を取得
+  const grip = getGripDom();
+
+  const dx = x - grip.x;
+  const dy = y - grip.y;
 
   angle = Math.atan2(dy,dx);
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
-
 /* タッチ */
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
