@@ -89,7 +89,7 @@ let angle=0;
 
 const GRIP_X=0.78;
 const GRIP_Y=0.58;
-const NOZZLE_DIST=140;
+const NOZZLE_DIST=170; // ←ここ少し伸ばす
 
 const dirtImg=new Image();
 dirtImg.src="before.png";
@@ -122,61 +122,51 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル座標 */
+/* ノズル */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
 
   const gx = rect.left + rect.width * GRIP_X;
   const gy = rect.top  + rect.height * GRIP_Y;
 
-  const cx = (gx - dirt.getBoundingClientRect().left) * (dirt.width / dirt.getBoundingClientRect().width);
-  const cy = (gy - dirt.getBoundingClientRect().top) * (dirt.height / dirt.getBoundingClientRect().height);
+  const c = domToCanvas(gx,gy);
 
   return {
-    x: cx + Math.cos(angle) * NOZZLE_DIST,
-    y: cy + Math.sin(angle) * NOZZLE_DIST
+    x: c.x + Math.cos(angle)*NOZZLE_DIST,
+    y: c.y + Math.sin(angle)*NOZZLE_DIST
   };
 }
 
-/* 扇状削り */
-function sprayHit(){
+/* 水＋削り（統合） */
+function sprayAll(){
   const n=getNozzle();
+
+  sCtx.clearRect(0,0,spray.width,spray.height);
 
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<20;i++){
+  for(let i=0;i<140;i++){
+
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
-    let dist=40 + Math.random()*80;
 
-    let x=n.x + Math.cos(dir)*dist;
-    let y=n.y + Math.sin(dir)*dist;
-
-    dCtx.beginPath();
-    dCtx.arc(x,y,14,0,Math.PI*2);
-    dCtx.fill();
-  }
-
-  dCtx.restore();
-}
-
-/* 水エフェクト */
-function drawSpray(){
-  const n=getNozzle();
-  sCtx.clearRect(0,0,spray.width,spray.height);
-
-  for(let i=0;i<120;i++){
-    let spread=(Math.random()-0.5)*0.35;
-    let dir=angle+spread;
     let dist=Math.random()*260;
 
     let x=n.x + Math.cos(dir)*dist;
     let y=n.y + Math.sin(dir)*dist;
 
+    // ★水表示
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
+
+    // ★削り（同じ位置）
+    dCtx.beginPath();
+    dCtx.arc(x,y,12,0,Math.PI*2);
+    dCtx.fill();
   }
+
+  dCtx.restore();
 }
 
 /* 進捗 */
@@ -192,7 +182,7 @@ function updateProgress(){
   bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
-/* ホース制御 */
+/* ホース */
 function updateHose(x,y){
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
@@ -204,15 +194,12 @@ function updateHose(x,y){
   const gripX = x;
   const gripY = y;
 
-  const targetX = x + 1; // 進行方向を作る
-  const targetY = y;
-
-  angle = Math.atan2(targetY-gripY,targetX-gripX);
+  angle = Math.atan2(0,1); // 基準方向（右）
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
 
-/* pointerイベントに統一 */
+/* pointer */
 dirt.addEventListener("pointerdown",(e)=>{
   isDown=true;
   sound.currentTime=0;
@@ -228,11 +215,9 @@ dirt.addEventListener("pointermove",(e)=>{
   if(!isDown) return;
 
   updateHose(e.clientX,e.clientY);
-  sprayHit();
-  drawSpray();
+  sprayAll();
   updateProgress();
 });
-
 </script>
 </body>
 </html>
