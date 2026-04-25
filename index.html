@@ -216,15 +216,21 @@ function updateProgress(){
 
 /* ホース */
 function updateHose(x,y){
+
   const rect=hose.getBoundingClientRect();
+
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
 
+  // ① 位置
   hose.style.left=(x-gx)+"px";
   hose.style.top=(y-gy)+"px";
 
-  const g=getGripDom();
-  angle=Math.atan2(y-g.y,x-g.x);
+  // ② 角度（画面中央基準に変更）
+  const centerX=window.innerWidth/2;
+  const centerY=window.innerHeight/2;
+
+  angle=Math.atan2(y-centerY, x-centerX);
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
@@ -233,6 +239,12 @@ function updateHose(x,y){
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   sound.play();
+
+  const t=e.touches[0];
+
+  // ★これ追加
+  updateHose(t.clientX,t.clientY);
+
 },{passive:false});
 
 dirt.addEventListener("touchend",()=>{
