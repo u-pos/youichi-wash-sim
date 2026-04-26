@@ -44,10 +44,10 @@ body{
   left:80px;
   top:80px;
 
-  transform-origin:78% 58%;
+  transform-origin:62% 58%;
 }
 
-/* ▼ボタン上に */
+/* ボタン上 */
 .controls{
   position:absolute;
   top:10px;
@@ -77,7 +77,7 @@ body{
   <img id="clean" src="clean.png">
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
-  <img id="hose" src="hose.png">
+  <img id="hose" src="hoseA.png">
 
   <div class="controls">
     <button onclick="rotate(-90)">←</button>
@@ -105,18 +105,17 @@ let isDown=false;
 let angleDeg=0;
 let angle=0;
 
-/* グリップ（黄色） */
-const GRIP_X=0.78;
+/* ★ここが最重要（画像基準） */
+const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
-/* ノズル（画像内の固定位置） */
-const NOZZLE_X=0.12;
-const NOZZLE_Y=0.08;
+const NOZZLE_X=0.18;
+const NOZZLE_Y=0.12;
 
-/* 初期化 */
 const dirtImg=new Image();
 dirtImg.src="before.png";
 
+/* 初期化 */
 function init(){
   const w=clean.naturalWidth;
   const h=clean.naturalHeight;
@@ -135,7 +134,7 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* 座標変換 */
+/* DOM→Canvas */
 function domToCanvas(x,y){
   const rect=dirt.getBoundingClientRect();
   return{
@@ -144,22 +143,24 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル位置（回転対応） */
+/* ノズル（回転完全対応） */
 function getNozzle(){
+
   const rect=hose.getBoundingClientRect();
 
-  // グリップ位置（回転中心）
+  // グリップ
   const gx = rect.left + rect.width * GRIP_X;
   const gy = rect.top  + rect.height * GRIP_Y;
 
-  // ノズル元位置
-  let nx = rect.left + rect.width * NOZZLE_X;
-  let ny = rect.top  + rect.height * NOZZLE_Y;
+  // ノズル（元位置）
+  const nx = rect.left + rect.width * NOZZLE_X;
+  const ny = rect.top  + rect.height * NOZZLE_Y;
 
-  // ★回転適用（ここが核心）
+  // 相対ベクトル
   let dx = nx - gx;
   let dy = ny - gy;
 
+  // 回転適用
   let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
   let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
@@ -168,6 +169,7 @@ function getNozzle(){
 
 /* 水＋削り */
 function sprayAll(){
+
   const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -175,7 +177,8 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<140;i++){
+  for(let i=0;i<150;i++){
+
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
     let dist=Math.random()*260;
@@ -183,9 +186,11 @@ function sprayAll(){
     let x=n.x + Math.cos(dir)*dist;
     let y=n.y + Math.sin(dir)*dist;
 
+    // 水
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
+    // 削り（完全一致）
     dCtx.beginPath();
     dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
@@ -196,6 +201,7 @@ function sprayAll(){
 
 /* 吸着 */
 function updateHose(x,y){
+
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
