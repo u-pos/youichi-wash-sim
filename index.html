@@ -72,9 +72,42 @@ button{
   </div>
 </div>
 
-<audio id="waterSound" src="water.wav" loop></audio>
-
 <script>
+  
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let buffer = null;
+let source = null;
+
+async function startSound(){
+
+  // 初回だけロード
+  if(!buffer){
+    const res = await fetch("water.wav");
+    const arr = await res.arrayBuffer();
+    buffer = await audioCtx.decodeAudioData(arr);
+  }
+
+  if(audioCtx.state === "suspended"){
+    await audioCtx.resume();
+  }
+
+  if(source) return;
+
+  source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  source.connect(audioCtx.destination);
+  source.start(0);
+}
+
+function stopSound(){
+  if(source){
+    source.stop();
+    source.disconnect();
+    source = null;
+  }
+}
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
