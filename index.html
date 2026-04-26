@@ -149,16 +149,13 @@ function getGripDom(){
 
 /* ノズル位置（回転込み） */
 function getNozzle(){
-  const grip=getGripDom();
-  const rect=dirt.getBoundingClientRect();
+  const rect = hose.getBoundingClientRect();
 
-  let gx=(grip.x-rect.left)*(dirt.width/rect.width);
-  let gy=(grip.y-rect.top)*(dirt.height/rect.height);
+  // ★画像内の先端（赤丸）
+  const nx = rect.left + rect.width * 0.12;
+  const ny = rect.top  + rect.height * 0.08;
 
-  let nx = gx + (NOZZLE_OFFSET_X * Math.cos(angle) - NOZZLE_OFFSET_Y * Math.sin(angle));
-  let ny = gy + (NOZZLE_OFFSET_X * Math.sin(angle) + NOZZLE_OFFSET_Y * Math.cos(angle));
-
-  return {x:nx,y:ny};
+  return domToCanvas(nx, ny);
 }
 
 /* 水＋削り（完全一致） */
@@ -206,29 +203,26 @@ function updateProgress(){
   bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
-/* ホース操作 */
 function updateHose(x,y){
 
-  const rect=hose.getBoundingClientRect();
-  const gx=rect.width*GRIP_X;
-  const gy=rect.height*GRIP_Y;
+  const rect = hose.getBoundingClientRect();
+  const gx = rect.width * GRIP_X;
+  const gy = rect.height * GRIP_Y;
 
-  /* 吸着 */
-  hose.style.left=(x-gx)+"px";
-  hose.style.top =(y-gy)+"px";
+  hose.style.left = (x - gx) + "px";
+  hose.style.top  = (y - gy) + "px";
 
-  /* 回転（暴走防止） */
-  let dx=x-prevX;
-  let dy=y-prevY;
+  // ★グリップ位置を取得
+  const gripX = x;
+  const gripY = y;
 
-  if(Math.abs(dx)+Math.abs(dy)>2){
-    angle=Math.atan2(dy,dx);
-  }
+  // ★ノズル位置を仮想で出す（方向用）
+  const nozzleX = gripX - 120;
+  const nozzleY = gripY - 180;
 
-  hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
+  angle = Math.atan2(nozzleY - gripY, nozzleX - gripX);
 
-  prevX=x;
-  prevY=y;
+  hose.style.transform = `rotate(${angle*180/Math.PI}deg)`;
 }
 
 /* 操作 */
