@@ -60,13 +60,11 @@ body{
   z-index:4;
 }
 
-/* ★クリア画像 */
 #clearImg{
   z-index:5;
   display:none;
 }
 
-/* ボタン */
 #restartBtn{
   position:absolute;
   bottom:-60px;
@@ -104,10 +102,7 @@ body{
   <img src="clean.png">
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
-
-  <!-- ★クリア画像 -->
   <img id="clearImg" src="missionclear.png">
-
   <img id="hose" src="hoseA.png">
 
   <div class="controls">
@@ -115,7 +110,6 @@ body{
     <button onclick="flipX()">左右</button>
   </div>
 
-  <!-- ★リスタート -->
   <button id="restartBtn" onclick="restart()">再度きれいにする</button>
 </div>
 
@@ -137,26 +131,26 @@ let flipXFlag=false;
 let flipYFlag=false;
 let finished=false;
 
-/* 吸着 */
 const GRIP_X=0.48;
 const GRIP_Y=0.42;
-
-/* ノズル */
 const NOZZLE_X=0.08;
 const NOZZLE_Y=0.08;
 
 const img=new Image();
 img.src="before.png";
 
+/* ★ここが重要修正 */
 img.onload=()=>{
-  dirt.width=img.width;
-  dirt.height=img.height;
-  spray.width=img.width;
-  spray.height=img.height;
-  dCtx.drawImage(img,0,0);
+  const rect = game.getBoundingClientRect();
+
+  dirt.width = rect.width;
+  dirt.height = rect.height;
+  spray.width = rect.width;
+  spray.height = rect.height;
+
+  dCtx.drawImage(img,0,0,rect.width,rect.height);
 };
 
-/* ノズル */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
   const gRect=game.getBoundingClientRect();
@@ -170,13 +164,9 @@ function getNozzle(){
   let gx=rect.left-gRect.left+nx;
   let gy=rect.top -gRect.top +ny;
 
-  return{
-    x: gx*(dirt.width/gRect.width),
-    y: gy*(dirt.height/gRect.height)
-  };
+  return { x:gx, y:gy }; // ★変換しない
 }
 
-/* 水 */
 function sprayAll(){
   const n=getNozzle();
 
@@ -218,7 +208,6 @@ function sprayAll(){
   updateProgress();
 }
 
-/* 進捗 */
 function updateProgress(){
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
@@ -241,19 +230,14 @@ function updateProgress(){
   }
 }
 
-/* 吸着 */
 function moveHose(x,y){
   const gRect=game.getBoundingClientRect();
   const rect=hose.getBoundingClientRect();
 
-  const gx=rect.width*GRIP_X;
-  const gy=rect.height*GRIP_Y;
-
-  hose.style.left=(x-gRect.left-gx)+"px";
-  hose.style.top =(y-gRect.top -gy)+"px";
+  hose.style.left=(x-gRect.left-rect.width*GRIP_X)+"px";
+  hose.style.top =(y-gRect.top -rect.height*GRIP_Y)+"px";
 }
 
-/* 反転 */
 function applyTransform(){
   hose.style.transform=
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
@@ -261,7 +245,6 @@ function applyTransform(){
 function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
-/* 操作 */
 window.addEventListener("pointerdown",e=>{
   if(finished) return;
   isDown=true;
@@ -277,10 +260,10 @@ window.addEventListener("pointermove",e=>{
   sprayAll();
 });
 
-/* リスタート */
 function restart(){
+  const rect = game.getBoundingClientRect();
   dCtx.clearRect(0,0,dirt.width,dirt.height);
-  dCtx.drawImage(img,0,0);
+  dCtx.drawImage(img,0,0,rect.width,rect.height);
 
   bar.style.width="100%";
   percent.innerText="残り 100%";
