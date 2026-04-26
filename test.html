@@ -128,7 +128,12 @@ fetch("water.wav")
 
 async function startSound(){
 
-  if(!buffer) return;
+  // ★ロード待ち
+  if(!buffer){
+    const res = await fetch("water.wav");
+    const arr = await res.arrayBuffer();
+    buffer = await audioCtx.decodeAudioData(arr);
+  }
 
   if(audioCtx.state==="suspended"){
     await audioCtx.resume();
@@ -192,15 +197,25 @@ function toCanvas(x,y){
 
 /* ノズル */
 function getNozzle(){
-  const rect=hose.getBoundingClientRect();
 
-  let nx=rect.width*NOZZLE_X;
-  let ny=rect.height*NOZZLE_Y;
+  const rect = hose.getBoundingClientRect();
+  const gameRect = game.getBoundingClientRect();
 
-  if(flipXFlag) nx=rect.width-nx;
-  if(flipYFlag) ny=rect.height-ny;
+  let nx = rect.width * NOZZLE_X;
+  let ny = rect.height * NOZZLE_Y;
 
-  return toCanvas(rect.left+nx,rect.top+ny);
+  if(flipXFlag) nx = rect.width - nx;
+  if(flipYFlag) ny = rect.height - ny;
+
+  // ★ゲーム座標に変換
+  let gx = rect.left - gameRect.left + nx;
+  let gy = rect.top  - gameRect.top  + ny;
+
+  // ★その後canvasへ
+  return {
+    x: gx * (dirt.width / gameRect.width),
+    y: gy * (dirt.height / gameRect.height)
+  };
 }
 
 /* 水 */
