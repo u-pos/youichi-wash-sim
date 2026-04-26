@@ -92,39 +92,44 @@ body{
 
 <script>
 /* ===== 音（確実に鳴る版） ===== */
-let audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-let buffer=null;
-let source=null;
+/* ===== 音（修正版）ここから ===== */
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let buffer = null;
+let source = null;
 
+/* ★ページ読み込み時に1回だけロード */
+window.addEventListener("load", async ()=>{
+  const res = await fetch("water.wav");
+  const arr = await res.arrayBuffer();
+  buffer = await audioCtx.decodeAudioData(arr);
+});
+
+/* 再生 */
 async function startSound(){
 
-  if(!buffer){
-    const res=await fetch("water.wav");
-    const arr=await res.arrayBuffer();
-    buffer=await audioCtx.decodeAudioData(arr);
-  }
-
-  if(audioCtx.state==="suspended"){
+  if(audioCtx.state === "suspended"){
     await audioCtx.resume();
   }
 
-  if(source) return;
+  if(source || !buffer) return;
 
-  source=audioCtx.createBufferSource();
-  source.buffer=buffer;
-  source.loop=true;
+  source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
   source.connect(audioCtx.destination);
   source.start();
 }
 
+/* 停止 */
 function stopSound(){
   if(source){
     source.stop();
     source.disconnect();
-    source=null;
+    source = null;
   }
 }
-
+/* ===== 音ここまで ===== */
 /* ===== 基本 ===== */
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
@@ -156,10 +161,16 @@ const img=new Image();
 img.src="before.png";
 
 img.onload=()=>{
-  dirt.width=img.width;
-  dirt.height=img.height;
-  spray.width=img.width;
-  spray.height=img.height;
+const rect = game.getBoundingClientRect();
+
+dirt.width  = rect.width;
+dirt.height = rect.height;
+
+spray.width  = rect.width;
+spray.height = rect.height;
+
+/* 描画も合わせる */
+dCtx.drawImage(img, 0, 0, rect.width, rect.height);
 
   dCtx.drawImage(img,0,0);
 
