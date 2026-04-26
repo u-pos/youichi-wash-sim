@@ -37,12 +37,14 @@ body{
 
 #hose{
   z-index:4;
-  width:300px; /* ←元サイズに戻した */
+  width:320px;
   position:absolute;
   object-fit:contain;
 
   left:80px;
   top:100px;
+
+  transform-origin:62% 58%; /* ★グリップ中心 */
 }
 
 .flipBtn{
@@ -86,12 +88,13 @@ const sCtx=spray.getContext("2d");
 let isDown=false;
 let flipped=false;
 
-/* ★ここが最重要（画像基準） */
+/* ★吸着位置（黄色〇） */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
-const NOZZLE_X=0.12; // 赤丸位置に合わせて調整済み
-const NOZZLE_Y=0.08;
+/* ★ノズル位置（赤〇）←ここかなり重要 */
+const NOZZLE_X=0.14;
+const NOZZLE_Y=0.10;
 
 const dirtImg=new Image();
 dirtImg.src="before.png";
@@ -124,18 +127,30 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル（完全固定） */
+/* ノズル（回転対応） */
 function getNozzle(){
 
   const rect=hose.getBoundingClientRect();
 
-  const x = rect.left + rect.width * NOZZLE_X;
-  const y = rect.top  + rect.height * NOZZLE_Y;
+  const gx = rect.left + rect.width * GRIP_X;
+  const gy = rect.top  + rect.height * GRIP_Y;
 
-  return domToCanvas(x,y);
+  const nx = rect.left + rect.width * NOZZLE_X;
+  const ny = rect.top  + rect.height * NOZZLE_Y;
+
+  let dx = nx - gx;
+  let dy = ny - gy;
+
+  // ★180度回転
+  if(flipped){
+    dx = -dx;
+    dy = -dy;
+  }
+
+  return domToCanvas(gx + dx, gy + dy);
 }
 
-/* 水＋削り（統一） */
+/* 水＋削り */
 function sprayAll(){
 
   const n=getNozzle();
@@ -145,11 +160,11 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  /* ★方向（画像軸ベース） */
-  let baseDX = -1;        // 左
-  let baseDY = flipped ? 1 : -1;  // 上 or 下
+  // ★方向（左上 or 右下）
+  let baseDX = flipped ? 1 : -1;
+  let baseDY = flipped ? 1 : -1;
 
-  let len = Math.sqrt(baseDX*baseDX + baseDY*baseDY);
+  let len=Math.sqrt(baseDX*baseDX + baseDY*baseDY);
   baseDX/=len;
   baseDY/=len;
 
@@ -168,11 +183,9 @@ function sprayAll(){
     let x=n.x + dx*dist;
     let y=n.y + dy*dist;
 
-    /* 水 */
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
-    /* 削り */
     dCtx.beginPath();
     dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
@@ -181,7 +194,7 @@ function sprayAll(){
   dCtx.restore();
 }
 
-/* 吸着（完全固定） */
+/* 吸着 */
 function updateHose(x,y){
   const w=hose.offsetWidth;
   const h=hose.offsetHeight;
@@ -193,10 +206,10 @@ function updateHose(x,y){
   hose.style.top =(y-gy)+"px";
 }
 
-/* 反転 */
+/* 反転（180°） */
 function flip(){
   flipped=!flipped;
-  hose.style.transform = flipped ? "scaleY(-1)" : "scaleY(1)";
+  hose.style.transform = flipped ? "rotate(180deg)" : "rotate(0deg)";
 }
 
 /* 操作 */
@@ -218,6 +231,5 @@ dirt.addEventListener("pointermove",(e)=>{
   sprayAll();
 });
 </script>
-
 </body>
 </html>
