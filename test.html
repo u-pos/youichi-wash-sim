@@ -20,16 +20,9 @@ body{
   font-family:sans-serif;
 }
 
-/* ===== HUD（上） ===== */
 .hud{
   width:360px;
   padding:10px;
-  box-sizing:border-box;
-}
-
-#percentText{
-  font-size:14px;
-  margin-bottom:4px;
 }
 
 #gauge{
@@ -39,14 +32,12 @@ body{
   border-radius:5px;
   overflow:hidden;
 }
-
 #bar{
   height:100%;
   width:100%;
   background:#4fc3f7;
 }
 
-/* ===== ゲーム ===== */
 .game{
   position:relative;
   width:360px;
@@ -68,12 +59,10 @@ body{
   z-index:4;
 }
 
-/* ボタン */
 .controls{
   position:absolute;
   top:10px;
   right:10px;
-  z-index:10;
   display:flex;
   gap:5px;
 }
@@ -86,7 +75,6 @@ button{
   border-radius:5px;
 }
 
-/* クリア画面 */
 #clear{
   position:absolute;
   inset:0;
@@ -121,7 +109,7 @@ button{
   <div id="clear">Mission Complete</div>
 </div>
 
-<audio id="waterSound" src="water.wav" loop></audio>
+<audio id="waterSound" src="water.wav"></audio>
 
 <script>
 const game=document.getElementById("game");
@@ -141,13 +129,17 @@ let isDown=false;
 let flipXFlag=false;
 let flipYFlag=false;
 let finished=false;
+let lastCheck=0;
 
+/* 吸着 */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
+/* ノズル */
 const NOZZLE_X=0.10;
 const NOZZLE_Y=0.06;
 
+/* 画像 */
 const img=new Image();
 img.src="before.png";
 
@@ -159,12 +151,17 @@ img.onload=()=>{
   dCtx.drawImage(img,0,0);
 };
 
+/* 音ループ（途切れ防止） */
+sound.addEventListener("ended", ()=>{
+  sound.currentTime = 0;
+  sound.play();
+});
+
 /* 座標 */
 function toGame(x,y){
   const r=game.getBoundingClientRect();
   return {x:x-r.left,y:y-r.top};
 }
-
 function toCanvas(x,y){
   const r=dirt.getBoundingClientRect();
   return{
@@ -204,7 +201,6 @@ function sprayAll(){
   dx/=len; dy/=len;
 
   for(let i=0;i<100;i++){
-
     let spread=(Math.random()-0.5)*0.4;
 
     let sx=-dy*spread;
@@ -228,7 +224,11 @@ function sprayAll(){
 
   dCtx.restore();
 
-  updateProgress();
+  /* 進捗は間引き */
+  if(performance.now() - lastCheck > 200){
+    updateProgress();
+    lastCheck = performance.now();
+  }
 }
 
 /* 進捗 */
@@ -239,16 +239,18 @@ function updateProgress(){
   let clearCount=0;
 
   for(let i=3;i<data.length;i+=4){
-    if(data[i]===0) clearCount++;
+    if(data[i] < 10) clearCount++;
   }
 
-  let percent=Math.floor((clearCount/total)*100);
-  let remain=100-percent;
+  let percent=(clearCount/total)*100;
+  let remain=Math.ceil(100-percent);
+
+  if(remain <= 1) remain = 0;
 
   bar.style.width=remain+"%";
   text.textContent="残り "+remain+"%";
 
-  if(remain<=0 && !finished){
+  if(remain === 0 && !finished){
     finished=true;
     clear.style.display="flex";
     sound.pause();
@@ -276,7 +278,6 @@ function flipX(){
   flipXFlag=!flipXFlag;
   applyTransform();
 }
-
 function flipY(){
   flipYFlag=!flipYFlag;
   applyTransform();
@@ -289,12 +290,10 @@ window.addEventListener("pointerdown",e=>{
   sound.currentTime=0;
   sound.play();
 });
-
 window.addEventListener("pointerup",()=>{
   isDown=false;
   sound.pause();
 });
-
 window.addEventListener("pointermove",e=>{
   if(!isDown) return;
 
