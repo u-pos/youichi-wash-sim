@@ -30,21 +30,10 @@ body{
   object-fit:cover;
 }
 
-#bg{z-index:0;}
-#clean{z-index:1;}
-#dirt{z-index:2;}
-#spray{z-index:3;}
-
 #hose{
-  z-index:4;
-  width:320px;
   position:absolute;
-  object-fit:contain;
-
-  left:80px;
-  top:100px;
-
-  transform-origin:62% 58%; /* ★グリップ中心 */
+  width:320px;
+  transform-origin:62% 58%; /* ★グリップ */
 }
 
 .flipBtn{
@@ -52,11 +41,6 @@ body{
   top:10px;
   right:10px;
   z-index:10;
-  padding:10px 15px;
-  background:#222;
-  color:#fff;
-  border:none;
-  border-radius:8px;
 }
 </style>
 </head>
@@ -86,13 +70,12 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-let flipped=false;
+let angle=0;
 
-/* ★吸着位置（黄色〇） */
+/* ★画像ローカル座標 */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
-/* ★ノズル位置（赤〇）←ここかなり重要 */
 const NOZZLE_X=0.14;
 const NOZZLE_Y=0.10;
 
@@ -118,7 +101,7 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* DOM→Canvas */
+/* 座標変換 */
 function domToCanvas(x,y){
   const rect=dirt.getBoundingClientRect();
   return{
@@ -127,7 +110,16 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル（回転対応） */
+/* ★グリップの画面座標 */
+function getGrip(){
+  const rect=hose.getBoundingClientRect();
+  return{
+    x:rect.left + rect.width*GRIP_X,
+    y:rect.top  + rect.height*GRIP_Y
+  };
+}
+
+/* ★ノズル（回転込み） */
 function getNozzle(){
 
   const rect=hose.getBoundingClientRect();
@@ -141,16 +133,14 @@ function getNozzle(){
   let dx = nx - gx;
   let dy = ny - gy;
 
-  // ★180度回転
-  if(flipped){
-    dx = -dx;
-    dy = -dy;
-  }
+  // ★回転適用
+  let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
+  let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
-  return domToCanvas(gx + dx, gy + dy);
+  return domToCanvas(gx + rx, gy + ry);
 }
 
-/* 水＋削り */
+/* 水 */
 function sprayAll(){
 
   const n=getNozzle();
@@ -160,15 +150,10 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  // ★方向（左上 or 右下）
-  let baseDX = flipped ? 1 : -1;
-  let baseDY = flipped ? 1 : -1;
+  let baseDX = Math.cos(angle - Math.PI/4);
+  let baseDY = Math.sin(angle - Math.PI/4);
 
-  let len=Math.sqrt(baseDX*baseDX + baseDY*baseDY);
-  baseDX/=len;
-  baseDY/=len;
-
-  for(let i=0;i<130;i++){
+  for(let i=0;i<120;i++){
 
     let spread=(Math.random()-0.5)*0.5;
 
@@ -196,6 +181,7 @@ function sprayAll(){
 
 /* 吸着 */
 function updateHose(x,y){
+
   const w=hose.offsetWidth;
   const h=hose.offsetHeight;
 
@@ -206,10 +192,10 @@ function updateHose(x,y){
   hose.style.top =(y-gy)+"px";
 }
 
-/* 反転（180°） */
+/* ★180度回転（中心＝グリップ） */
 function flip(){
-  flipped=!flipped;
-  hose.style.transform = flipped ? "rotate(180deg)" : "rotate(0deg)";
+  angle += Math.PI;
+  hose.style.transform = `rotate(${angle}rad)`;
 }
 
 /* 操作 */
