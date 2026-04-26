@@ -330,7 +330,7 @@ function flipY(){
 window.addEventListener("pointerdown",e=>{
   if(finished) return;
   isDown=true;
-  startSound();
+  await startSound();
 });
 window.addEventListener("pointerup",()=>{
   isDown=false;
