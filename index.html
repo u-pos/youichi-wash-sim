@@ -153,18 +153,31 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
+  // ★方向ベクトル
+  let baseDX = -1;
+  let baseDY = flipped ? 1 : -1;
+
+  // 正規化
+  let len = Math.sqrt(baseDX*baseDX + baseDY*baseDY);
+  baseDX /= len;
+  baseDY /= len;
+
   for(let i=0;i<120;i++){
 
-    let spread=(Math.random()-0.5)*0.4;
+    // 扇状
+    let spread = (Math.random()-0.5)*0.5;
 
-    // 上向き or 下向き
-    let dir = flipped ? Math.PI/2 : -Math.PI/2;
-    dir += spread;
+    // 直交方向にブレ
+    let sx = -baseDY * spread;
+    let sy = baseDX * spread;
 
-    let dist=Math.random()*240;
+    let dx = baseDX + sx;
+    let dy = baseDY + sy;
 
-    let x=n.x + Math.cos(dir)*dist;
-    let y=n.y + Math.sin(dir)*dist;
+    let dist = Math.random()*240;
+
+    let x = n.x + dx*dist;
+    let y = n.y + dy*dist;
 
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
@@ -179,14 +192,17 @@ function sprayAll(){
 
 /* 吸着（ここは絶対固定） */
 function updateHose(x,y){
-  const rect=hose.getBoundingClientRect();
-  const gx=rect.width*GRIP_X;
-  const gy=rect.height*GRIP_Y;
 
-  hose.style.left=(x-gx)+"px";
-  hose.style.top =(y-gy)+"px";
+  // ★getBoundingClientRect使わない
+  const w = hose.offsetWidth;
+  const h = hose.offsetHeight;
+
+  const gx = w * GRIP_X;
+  const gy = h * GRIP_Y;
+
+  hose.style.left = (x - gx) + "px";
+  hose.style.top  = (y - gy) + "px";
 }
-
 /* 反転（回転なし） */
 function flip(){
   flipped = !flipped;
