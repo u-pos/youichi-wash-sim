@@ -109,14 +109,11 @@ button{
   <div id="clear">Mission Complete</div>
 </div>
 
-<audio id="waterSound" src="water.wav"></audio>
-
 <script>
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
-const sound=document.getElementById("waterSound");
 
 const bar=document.getElementById("bar");
 const text=document.getElementById("percentText");
@@ -130,6 +127,9 @@ let flipXFlag=false;
 let flipYFlag=false;
 let finished=false;
 let lastCheck=0;
+
+/* ★追加：初期汚れ */
+let initialDirt=0;
 
 /* 吸着 */
 const GRIP_X=0.62;
@@ -149,13 +149,49 @@ img.onload=()=>{
   spray.width=img.width;
   spray.height=img.height;
   dCtx.drawImage(img,0,0);
+
+  calculateInitial(); // ★追加
 };
 
-/* 音ループ（途切れ防止） */
-sound.addEventListener("ended", ()=>{
-  sound.currentTime = 0;
-  sound.play();
-});
+/* ★初期汚れ計算 */
+function calculateInitial(){
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+
+  initialDirt=0;
+
+  for(let i=3;i<data.length;i+=4){
+    if(data[i] > 10) initialDirt++;
+  }
+}
+
+/* ===== 音（完全シームレス） ===== */
+let audioCtx;
+let source;
+
+async function startSound(){
+  if(audioCtx) return;
+
+  audioCtx = new AudioContext();
+
+  const res = await fetch("water.wav");
+  const buf = await res.arrayBuffer();
+  const audio = await audioCtx.decodeAudioData(buf);
+
+  source = audioCtx.createBufferSource();
+  source.buffer = audio;
+  source.loop = true;
+
+  source.connect(audioCtx.destination);
+  source.start(0);
+}
+
+function stopSound(){
+  if(source){
+    source.stop();
+    source = null;
+    audioCtx = null;
+  }
+}
 
 /* 座標 */
 function toGame(x,y){
@@ -224,26 +260,24 @@ function sprayAll(){
 
   dCtx.restore();
 
-  /* 進捗は間引き */
   if(performance.now() - lastCheck > 200){
     updateProgress();
     lastCheck = performance.now();
   }
 }
 
-/* 進捗 */
+/* 進捗（完全修正版） */
 function updateProgress(){
+
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
-  let total=data.length/4;
-  let clearCount=0;
+  let currentDirt=0;
 
   for(let i=3;i<data.length;i+=4){
-    if(data[i] < 10) clearCount++;
+    if(data[i] > 10) currentDirt++;
   }
 
-  let percent=(clearCount/total)*100;
-  let remain=Math.ceil(100-percent);
+  let remain = Math.ceil((currentDirt / initialDirt) * 100);
 
   if(remain <= 1) remain = 0;
 
@@ -253,7 +287,7 @@ function updateProgress(){
   if(remain === 0 && !finished){
     finished=true;
     clear.style.display="flex";
-    sound.pause();
+    stopSound();
   }
 }
 
@@ -273,7 +307,6 @@ function applyTransform(){
   hose.style.transform=
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
-
 function flipX(){
   flipXFlag=!flipXFlag;
   applyTransform();
@@ -287,12 +320,11 @@ function flipY(){
 window.addEventListener("pointerdown",e=>{
   if(finished) return;
   isDown=true;
-  sound.currentTime=0;
-  sound.play();
+  startSound();
 });
 window.addEventListener("pointerup",()=>{
   isDown=false;
-  sound.pause();
+  stopSound();
 });
 window.addEventListener("pointermove",e=>{
   if(!isDown) return;
