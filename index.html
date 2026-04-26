@@ -14,7 +14,12 @@ body{
   align-items:center;
   height:100vh;
   overflow:hidden;
+}
+
+/* スクロール完全禁止 */
+html, body {
   touch-action:none;
+  overscroll-behavior:none;
 }
 
 .game{
@@ -37,12 +42,12 @@ body{
 
 #hose{
   z-index:4;
-  width:260px; /* ←ここを固定サイズに変更 */
+  width:340px; /* ←大きくする */
   position:absolute;
   object-fit:contain;
 
-  left:100px;
-  top:120px;
+  left:80px;
+  top:100px;
 
   transform-origin:62% 58%;
 }
@@ -101,7 +106,6 @@ const sCtx=spray.getContext("2d");
 let isDown=false;
 let angle=0;
 
-/* 座標（ここは微調整OK） */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 const NOZZLE_X=0.18;
@@ -129,7 +133,7 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* DOM→Canvas */
+/* 座標変換 */
 function domToCanvas(x,y){
   const rect=dirt.getBoundingClientRect();
   return{
@@ -138,9 +142,8 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル（修正版） */
+/* ノズル */
 function getNozzle(){
-
   const rect=hose.getBoundingClientRect();
 
   const gx = rect.left + rect.width * GRIP_X;
@@ -152,7 +155,6 @@ function getNozzle(){
   let dx = nx - gx;
   let dy = ny - gy;
 
-  // 回転
   let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
   let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
@@ -161,7 +163,6 @@ function getNozzle(){
 
 /* 水＋削り */
 function sprayAll(){
-
   const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -169,8 +170,7 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<150;i++){
-
+  for(let i=0;i<120;i++){
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
     let dist=Math.random()*240;
@@ -189,7 +189,7 @@ function sprayAll(){
   dCtx.restore();
 }
 
-/* 吸着 */
+/* ホース追従 */
 function updateHose(x,y){
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
@@ -205,24 +205,27 @@ function rotate(deg){
   hose.style.transform=`rotate(${deg}deg)`;
 }
 
-/* 操作 */
-dirt.addEventListener("pointerdown",(e)=>{
+/* ▼▼ここが最重要（touch対応）▼▼ */
+dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   sound.currentTime=0;
   sound.play();
-});
+},{passive:false});
 
-window.addEventListener("pointerup",()=>{
+dirt.addEventListener("touchend",()=>{
   isDown=false;
   sound.pause();
 });
 
-dirt.addEventListener("pointermove",(e)=>{
+dirt.addEventListener("touchmove",(e)=>{
+  e.preventDefault();
   if(!isDown) return;
 
-  updateHose(e.clientX,e.clientY);
+  const t=e.touches[0];
+
+  updateHose(t.clientX,t.clientY);
   sprayAll();
-});
+},{passive:false});
 </script>
 
 </body>
