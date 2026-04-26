@@ -124,17 +124,18 @@ function domToCanvas(x,y){
 
 /* ノズル */
 function getNozzle(){
-  const rect=hose.getBoundingClientRect();
+  const grip = getGripDom();
+  const rect = dirt.getBoundingClientRect();
 
-  const gx = rect.left + rect.width * GRIP_X;
-  const gy = rect.top  + rect.height * GRIP_Y;
+  // グリップをcanvas座標へ
+  let gx = (grip.x - rect.left) * (dirt.width/rect.width);
+  let gy = (grip.y - rect.top) * (dirt.height/rect.height);
 
-  const c = domToCanvas(gx,gy);
+  // ★回転付きオフセット
+  let nx = gx + (NOZZLE_OFFSET_X * Math.cos(angle) - NOZZLE_OFFSET_Y * Math.sin(angle));
+  let ny = gy + (NOZZLE_OFFSET_X * Math.sin(angle) + NOZZLE_OFFSET_Y * Math.cos(angle));
 
-  return {
-    x: c.x + Math.cos(angle)*NOZZLE_DIST,
-    y: c.y + Math.sin(angle)*NOZZLE_DIST
-  };
+  return {x:nx, y:ny};
 }
 
 /* 水＋削り（統合） */
@@ -184,17 +185,21 @@ function updateProgress(){
 
 /* ホース */
 function updateHose(x,y){
+
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
 
+  // グリップ吸着
   hose.style.left=(x-gx)+"px";
   hose.style.top =(y-gy)+"px";
 
-  const gripX = x;
-  const gripY = y;
+  const grip = getGripDom();
 
-  angle = Math.atan2(0,1); // 基準方向（右）
+  const dx = x - grip.x;
+  const dy = y - grip.y;
+
+  angle = Math.atan2(dy,dx); // ←ここが対象
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
 }
