@@ -17,20 +17,14 @@ body{
   overflow:hidden;
   touch-action:none;
   color:#fff;
-  font-family:sans-serif;
 }
 
-.hud{
-  width:360px;
-  padding:10px;
-}
+.hud{ width:360px; padding:10px; }
 
 #gauge{
   width:100%;
   height:10px;
   background:#333;
-  border-radius:5px;
-  overflow:hidden;
 }
 #bar{
   height:100%;
@@ -59,7 +53,6 @@ body{
   z-index:4;
 }
 
-/* ★ボタン最前面 */
 .controls{
   position:absolute;
   top:10px;
@@ -67,14 +60,6 @@ body{
   display:flex;
   gap:5px;
   z-index:9999;
-}
-
-button{
-  background:#222;
-  color:#fff;
-  border:none;
-  padding:6px 8px;
-  border-radius:5px;
 }
 
 #clear{
@@ -85,7 +70,6 @@ button{
   justify-content:center;
   align-items:center;
   font-size:24px;
-  z-index:9998;
 }
 </style>
 </head>
@@ -130,23 +114,27 @@ let flipXFlag=false;
 let flipYFlag=false;
 let finished=false;
 let lastCheck=0;
-
 let initialDirt=0;
 
-/* ===== 音（確実版） ===== */
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let buffer;
-let source;
+/* ===== 音 完全安定版 ===== */
+let audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+let buffer=null;
+let source=null;
 
 fetch("water.wav")
-  .then(r=>r.arrayBuffer())
-  .then(b=>audioCtx.decodeAudioData(b))
-  .then(decoded=>{
-    buffer = decoded;
-  });
+.then(r=>r.arrayBuffer())
+.then(b=>audioCtx.decodeAudioData(b))
+.then(decoded=>buffer=decoded);
 
-function startSound(){
+async function startSound(){
+
   if(!buffer) return;
+
+  if(audioCtx.state==="suspended"){
+    await audioCtx.resume();
+  }
+
+  if(source) return;
 
   source = audioCtx.createBufferSource();
   source.buffer = buffer;
@@ -159,7 +147,8 @@ function startSound(){
 function stopSound(){
   if(source){
     source.stop();
-    source = null;
+    source.disconnect();
+    source=null;
   }
 }
 
@@ -171,7 +160,7 @@ const GRIP_Y=0.58;
 const NOZZLE_X=0.10;
 const NOZZLE_Y=0.06;
 
-/* 画像 */
+/* 初期画像 */
 const img=new Image();
 img.src="before.png";
 
@@ -182,16 +171,11 @@ img.onload=()=>{
   spray.height=img.height;
   dCtx.drawImage(img,0,0);
 
-  calculateInitial();
-};
-
-/* 初期汚れ */
-function calculateInitial(){
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
   for(let i=3;i<data.length;i+=4){
-    if(data[i] > 10) initialDirt++;
+    if(data[i]>10) initialDirt++;
   }
-}
+};
 
 /* 座標 */
 function toGame(x,y){
@@ -260,46 +244,45 @@ function sprayAll(){
 
   dCtx.restore();
 
-  if(performance.now() - lastCheck > 200){
+  if(performance.now()-lastCheck>200){
     updateProgress();
-    lastCheck = performance.now();
+    lastCheck=performance.now();
   }
 }
 
 /* 進捗 */
 function updateProgress(){
-
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
   let current=0;
-
   for(let i=3;i<data.length;i+=4){
-    if(data[i] > 10) current++;
+    if(data[i]>10) current++;
   }
 
-  let remain = Math.ceil((current / initialDirt) * 100);
-
-  if(remain <= 1) remain = 0;
+  let remain=Math.ceil((current/initialDirt)*100);
+  if(remain<=1) remain=0;
 
   bar.style.width=remain+"%";
   text.textContent="残り "+remain+"%";
 
-  if(remain === 0 && !finished){
+  if(remain===0 && !finished){
     finished=true;
     clear.style.display="flex";
     stopSound();
   }
 }
 
-/* 吸着 */
+/* ★ズレ完全修正 */
 function moveHose(x,y){
   const p=toGame(x,y);
 
-  const w=hose.offsetWidth;
-  const h=hose.offsetHeight;
+  const rect = hose.getBoundingClientRect();
 
-  hose.style.left=(p.x-w*GRIP_X)+"px";
-  hose.style.top =(p.y-h*GRIP_Y)+"px";
+  const gx = rect.width * GRIP_X;
+  const gy = rect.height * GRIP_Y;
+
+  hose.style.left=(p.x-gx)+"px";
+  hose.style.top =(p.y-gy)+"px";
 }
 
 /* 反転 */
@@ -308,25 +291,21 @@ function applyTransform(){
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
 
-function flipX(){
-  flipXFlag=!flipXFlag;
-  applyTransform();
-}
-function flipY(){
-  flipYFlag=!flipYFlag;
-  applyTransform();
-}
+function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
+function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-window.addEventListener("pointerdown",e=>{
+window.addEventListener("pointerdown",async e=>{
   if(finished) return;
   isDown=true;
-  startSound();
+  await startSound();
 });
+
 window.addEventListener("pointerup",()=>{
   isDown=false;
   stopSound();
 });
+
 window.addEventListener("pointermove",e=>{
   if(!isDown) return;
 
