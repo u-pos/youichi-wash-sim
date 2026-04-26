@@ -26,7 +26,6 @@ body{
   aspect-ratio:3/4;
 }
 
-/* 全レイヤー */
 .game img,.game canvas{
   position:absolute;
   top:0;left:0;
@@ -51,21 +50,18 @@ body{
   transform-origin:62% 58%;
 }
 
-/* ★右上ボタン */
+/* 右上ボタン */
 #flipBtn{
   position:absolute;
   top:10px;
   right:10px;
   z-index:10;
-
   width:70px;
   height:40px;
-
   border:none;
   border-radius:8px;
   background:#222;
   color:#fff;
-  font-size:14px;
 }
 </style>
 </head>
@@ -95,12 +91,9 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-
-/* 反転管理 */
 let flipped=false;
-let angle=0;
 
-/* ★画像基準座標（必要なら微調整） */
+/* ★画像基準 */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 const NOZZLE_X=0.18;
@@ -137,27 +130,22 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル位置（完全安定版） */
+/* ノズル位置（上下反転対応） */
 function getNozzle(){
+
   const rect=hose.getBoundingClientRect();
 
-  const gx = rect.left + rect.width * GRIP_X;
-  const gy = rect.top  + rect.height * GRIP_Y;
-
   const nx = rect.left + rect.width * NOZZLE_X;
-  const ny = rect.top  + rect.height * NOZZLE_Y;
 
-  let dx = nx - gx;
-  let dy = ny - gy;
+  // ★ここが核心（上下反転）
+  const ny = rect.top + rect.height * (flipped ? (1 - NOZZLE_Y) : NOZZLE_Y);
 
-  let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
-  let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
-
-  return domToCanvas(gx + rx, gy + ry);
+  return domToCanvas(nx, ny);
 }
 
 /* 水＋削り */
 function sprayAll(){
+
   const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -166,8 +154,13 @@ function sprayAll(){
   dCtx.globalCompositeOperation="destination-out";
 
   for(let i=0;i<120;i++){
-    let spread=(Math.random()-0.5)*0.35;
-    let dir=angle+spread;
+
+    let spread=(Math.random()-0.5)*0.4;
+
+    // 上向き or 下向き
+    let dir = flipped ? Math.PI/2 : -Math.PI/2;
+    dir += spread;
+
     let dist=Math.random()*240;
 
     let x=n.x + Math.cos(dir)*dist;
@@ -184,7 +177,7 @@ function sprayAll(){
   dCtx.restore();
 }
 
-/* ホース吸着 */
+/* 吸着（ここは絶対固定） */
 function updateHose(x,y){
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
@@ -194,15 +187,14 @@ function updateHose(x,y){
   hose.style.top =(y-gy)+"px";
 }
 
-/* ★反転 */
+/* 反転（回転なし） */
 function flip(){
   flipped = !flipped;
-  angle = flipped ? Math.PI : 0;
 
-  hose.style.transform = `rotate(${flipped ? 180 : 0}deg)`;
+  hose.style.transform = flipped ? "scaleY(-1)" : "scaleY(1)";
 }
 
-/* タッチ操作 */
+/* 操作 */
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   sound.currentTime=0;
