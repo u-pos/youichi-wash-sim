@@ -134,19 +134,26 @@ let lastCheck=0;
 let initialDirt=0;
 
 /* ===== 音（確実版） ===== */
+/* ===== 音（完全安定版） ===== */
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let buffer;
-let source;
+let buffer = null;
+let source = null;
 
-fetch("water.wav")
-  .then(r=>r.arrayBuffer())
-  .then(b=>audioCtx.decodeAudioData(b))
-  .then(decoded=>{
-    buffer = decoded;
-  });
+/* ★確実に事前ロード */
+window.addEventListener("load", async ()=>{
+  const res = await fetch("water.wav");
+  const arr = await res.arrayBuffer();
+  buffer = await audioCtx.decodeAudioData(arr);
+});
 
-function startSound(){
-  if(!buffer) return;
+/* 再生 */
+async function startSound(){
+
+  if(audioCtx.state === "suspended"){
+    await audioCtx.resume(); // ←これが最重要
+  }
+
+  if(source || !buffer) return;
 
   source = audioCtx.createBufferSource();
   source.buffer = buffer;
@@ -156,9 +163,11 @@ function startSound(){
   source.start(0);
 }
 
+/* 停止 */
 function stopSound(){
   if(source){
     source.stop();
+    source.disconnect();
     source = null;
   }
 }
