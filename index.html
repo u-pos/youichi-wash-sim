@@ -19,10 +19,11 @@ body{
   color:#fff;
 }
 
-/* HUD復活 */
+/* HUD */
 .hud{
   width:360px;
   padding:6px;
+  font-size:14px;
 }
 #barWrap{
   width:100%;
@@ -41,11 +42,13 @@ body{
   aspect-ratio:3/4;
 }
 
+/* ★ここが重要 */
 .game img,.game canvas{
   position:absolute;
   top:0;left:0;
-  width:100%;height:100%;
-  object-fit:cover;
+  width:100%;
+  height:100%;
+  object-fit:contain; /* ← cover禁止 */
 }
 
 #hose{
@@ -70,6 +73,7 @@ body{
 <body>
 
 <div class="hud">
+  <div id="percent">残り 100%</div>
   <div id="barWrap"><div id="bar"></div></div>
 </div>
 
@@ -87,19 +91,18 @@ body{
 </div>
 
 <script>
-/* ========= 音 ========= */
+/* ===== 音（確実に鳴る版） ===== */
 let audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 let buffer=null;
 let source=null;
 
-/* ★事前ロード（ここ重要） */
-fetch("water.wav")
-.then(r=>r.arrayBuffer())
-.then(b=>audioCtx.decodeAudioData(b))
-.then(d=>buffer=d);
-
 async function startSound(){
-  if(!buffer) return;
+
+  if(!buffer){
+    const res=await fetch("water.wav");
+    const arr=await res.arrayBuffer();
+    buffer=await audioCtx.decodeAudioData(arr);
+  }
 
   if(audioCtx.state==="suspended"){
     await audioCtx.resume();
@@ -122,12 +125,13 @@ function stopSound(){
   }
 }
 
-/* ========= 基本 ========= */
+/* ===== 基本 ===== */
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
 const bar=document.getElementById("bar");
+const percent=document.getElementById("percent");
 
 const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
@@ -144,6 +148,9 @@ const GRIP_Y=0.42;
 const NOZZLE_X=0.08;
 const NOZZLE_Y=0.08;
 
+/* 初期汚れ */
+let totalDirt=0;
+
 /* 画像 */
 const img=new Image();
 img.src="before.png";
@@ -153,12 +160,17 @@ img.onload=()=>{
   dirt.height=img.height;
   spray.width=img.width;
   spray.height=img.height;
+
   dCtx.drawImage(img,0,0);
+
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>10) totalDirt++;
+  }
 };
 
-/* ===== 座標（ここが核心） ===== */
+/* ノズル */
 function getNozzle(){
-
   const rect=hose.getBoundingClientRect();
   const gRect=game.getBoundingClientRect();
 
@@ -168,14 +180,9 @@ function getNozzle(){
   if(flipXFlag) nx=rect.width-nx;
   if(flipYFlag) ny=rect.height-ny;
 
-  /* ★game座標へ */
-  let gx=rect.left-gRect.left+nx;
-  let gy=rect.top -gRect.top +ny;
-
-  /* ★canvasへ */
   return{
-    x: gx*(dirt.width/gRect.width),
-    y: gy*(dirt.height/gRect.height)
+    x:(rect.left-gRect.left+nx)*(dirt.width/gRect.width),
+    y:(rect.top -gRect.top +ny)*(dirt.height/gRect.height)
   };
 }
 
@@ -219,6 +226,24 @@ function sprayAll(){
   }
 
   dCtx.restore();
+
+  updateProgress();
+}
+
+/* 進捗 */
+function updateProgress(){
+
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+
+  let remainCount=0;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>10) remainCount++;
+  }
+
+  let percentVal=Math.ceil((remainCount/totalDirt)*100);
+
+  bar.style.width=percentVal+"%";
+  percent.textContent="残り "+percentVal+"%";
 }
 
 /* 吸着 */
@@ -239,6 +264,7 @@ function applyTransform(){
   hose.style.transform=
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
+
 function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
