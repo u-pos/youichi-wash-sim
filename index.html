@@ -33,7 +33,9 @@ body{
 #hose{
   position:absolute;
   width:320px;
-  transform-origin:62% 58%; /* ★グリップ */
+  left:80px;
+  top:100px;
+  z-index:4;
 }
 
 .flipBtn{
@@ -48,8 +50,8 @@ body{
 <body>
 
 <div class="game">
-  <img id="bg" src="bg.png">
-  <img id="clean" src="clean.png">
+  <img src="bg.png">
+  <img src="clean.png">
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
   <img id="hose" src="hoseA.png">
@@ -62,7 +64,6 @@ body{
 <script>
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
-const clean=document.getElementById("clean");
 const hose=document.getElementById("hose");
 const sound=document.getElementById("waterSound");
 
@@ -70,36 +71,27 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-let angle=0;
+let flipped=false;
 
-/* ★画像ローカル座標 */
+/* 吸着 */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
+/* ノズル（赤丸） */
 const NOZZLE_X=0.14;
 const NOZZLE_Y=0.10;
 
-const dirtImg=new Image();
-dirtImg.src="before.png";
+const img=new Image();
+img.src="before.png";
 
 /* 初期化 */
-function init(){
-  const w=clean.naturalWidth;
-  const h=clean.naturalHeight;
-  dirt.width=w;
-  dirt.height=h;
-  spray.width=w;
-  spray.height=h;
-  dCtx.drawImage(dirtImg,0,0,w,h);
-}
-
-let loaded=0;
-function ready(){
-  loaded++;
-  if(loaded===2) init();
-}
-clean.onload=ready;
-dirtImg.onload=ready;
+img.onload=()=>{
+  dirt.width=img.width;
+  dirt.height=img.height;
+  spray.width=img.width;
+  spray.height=img.height;
+  dCtx.drawImage(img,0,0);
+};
 
 /* 座標変換 */
 function domToCanvas(x,y){
@@ -110,37 +102,17 @@ function domToCanvas(x,y){
   };
 }
 
-/* ★グリップの画面座標 */
-function getGrip(){
-  const rect=hose.getBoundingClientRect();
-  return{
-    x:rect.left + rect.width*GRIP_X,
-    y:rect.top  + rect.height*GRIP_Y
-  };
-}
-
-/* ★ノズル（回転込み） */
+/* ノズル位置（固定） */
 function getNozzle(){
-
   const rect=hose.getBoundingClientRect();
 
-  const gx = rect.left + rect.width * GRIP_X;
-  const gy = rect.top  + rect.height * GRIP_Y;
+  const x = rect.left + rect.width*NOZZLE_X;
+  const y = rect.top  + rect.height*NOZZLE_Y;
 
-  const nx = rect.left + rect.width * NOZZLE_X;
-  const ny = rect.top  + rect.height * NOZZLE_Y;
-
-  let dx = nx - gx;
-  let dy = ny - gy;
-
-  // ★回転適用
-  let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
-  let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
-
-  return domToCanvas(gx + rx, gy + ry);
+  return domToCanvas(x,y);
 }
 
-/* 水 */
+/* 水＋削り */
 function sprayAll(){
 
   const n=getNozzle();
@@ -150,27 +122,34 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  let baseDX = Math.cos(angle - Math.PI/4);
-  let baseDY = Math.sin(angle - Math.PI/4);
+  /* 方向 */
+  let dx = flipped ? 1 : -1;
+  let dy = flipped ? 1 : -1;
+
+  let len=Math.sqrt(dx*dx+dy*dy);
+  dx/=len;
+  dy/=len;
 
   for(let i=0;i<120;i++){
 
     let spread=(Math.random()-0.5)*0.5;
 
-    let sx = -baseDY * spread;
-    let sy = baseDX * spread;
+    let sx=-dy*spread;
+    let sy=dx*spread;
 
-    let dx = baseDX + sx;
-    let dy = baseDY + sy;
+    let vx=dx+sx;
+    let vy=dy+sy;
 
-    let dist=Math.random()*220;
+    let dist=Math.random()*200;
 
-    let x=n.x + dx*dist;
-    let y=n.y + dy*dist;
+    let x=n.x + vx*dist;
+    let y=n.y + vy*dist;
 
+    /* 水 */
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
+    /* 削り */
     dCtx.beginPath();
     dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
@@ -180,8 +159,7 @@ function sprayAll(){
 }
 
 /* 吸着 */
-function updateHose(x,y){
-
+function moveHose(x,y){
   const w=hose.offsetWidth;
   const h=hose.offsetHeight;
 
@@ -192,14 +170,14 @@ function updateHose(x,y){
   hose.style.top =(y-gy)+"px";
 }
 
-/* ★180度回転（中心＝グリップ） */
+/* 反転 */
 function flip(){
-  angle += Math.PI;
-  hose.style.transform = `rotate(${angle}rad)`;
+  flipped=!flipped;
+  hose.style.transform = flipped ? "rotate(180deg)" : "rotate(0deg)";
 }
 
 /* 操作 */
-dirt.addEventListener("pointerdown",(e)=>{
+dirt.addEventListener("pointerdown",e=>{
   isDown=true;
   sound.currentTime=0;
   sound.play();
@@ -210,12 +188,13 @@ window.addEventListener("pointerup",()=>{
   sound.pause();
 });
 
-dirt.addEventListener("pointermove",(e)=>{
+dirt.addEventListener("pointermove",e=>{
   if(!isDown) return;
 
-  updateHose(e.clientX,e.clientY);
+  moveHose(e.clientX,e.clientY);
   sprayAll();
 });
 </script>
+
 </body>
 </html>
