@@ -6,20 +6,18 @@
 <title>陽一ウォッシュシミュレーター</title>
 
 <style>
-body{
+html,body{
   margin:0;
   background:#111;
+  height:100vh;
+  overflow:hidden;
+  touch-action:none;
+}
+
+body{
   display:flex;
   justify-content:center;
   align-items:center;
-  height:100vh;
-  overflow:hidden;
-}
-
-/* スクロール完全禁止 */
-html, body {
-  touch-action:none;
-  overscroll-behavior:none;
 }
 
 .game{
@@ -28,6 +26,7 @@ html, body {
   aspect-ratio:3/4;
 }
 
+/* 全レイヤー */
 .game img,.game canvas{
   position:absolute;
   top:0;left:0;
@@ -38,11 +37,11 @@ html, body {
 #bg{z-index:0;}
 #clean{z-index:1;}
 #dirt{z-index:2;}
-#spray{z-index:3;}
+#spray{z-index:3;pointer-events:none;}
 
 #hose{
   z-index:4;
-  width:340px; /* ←大きくする */
+  width:340px;
   position:absolute;
   object-fit:contain;
 
@@ -52,24 +51,21 @@ html, body {
   transform-origin:62% 58%;
 }
 
-.controls{
+/* ★右上ボタン */
+#flipBtn{
   position:absolute;
   top:10px;
-  width:100%;
-  display:flex;
-  justify-content:center;
-  gap:10px;
+  right:10px;
   z-index:10;
-}
 
-.controls button{
-  width:50px;
-  height:50px;
-  font-size:20px;
+  width:70px;
+  height:40px;
+
   border:none;
   border-radius:8px;
   background:#222;
   color:#fff;
+  font-size:14px;
 }
 </style>
 </head>
@@ -83,12 +79,7 @@ html, body {
   <canvas id="spray"></canvas>
   <img id="hose" src="hoseA.png">
 
-  <div class="controls">
-    <button onclick="rotate(-90)">←</button>
-    <button onclick="rotate(180)">↓</button>
-    <button onclick="rotate(90)">→</button>
-    <button onclick="rotate(0)">↑</button>
-  </div>
+  <button id="flipBtn" onclick="flip()">反転</button>
 </div>
 
 <audio id="waterSound" src="water.wav" loop></audio>
@@ -104,8 +95,12 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
+
+/* 反転管理 */
+let flipped=false;
 let angle=0;
 
+/* ★画像基準座標（必要なら微調整） */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 const NOZZLE_X=0.18;
@@ -142,7 +137,7 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル */
+/* ノズル位置（完全安定版） */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
 
@@ -189,7 +184,7 @@ function sprayAll(){
   dCtx.restore();
 }
 
-/* ホース追従 */
+/* ホース吸着 */
 function updateHose(x,y){
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
@@ -199,13 +194,15 @@ function updateHose(x,y){
   hose.style.top =(y-gy)+"px";
 }
 
-/* 回転 */
-function rotate(deg){
-  angle=deg*Math.PI/180;
-  hose.style.transform=`rotate(${deg}deg)`;
+/* ★反転 */
+function flip(){
+  flipped = !flipped;
+  angle = flipped ? Math.PI : 0;
+
+  hose.style.transform = `rotate(${flipped ? 180 : 0}deg)`;
 }
 
-/* ▼▼ここが最重要（touch対応）▼▼ */
+/* タッチ操作 */
 dirt.addEventListener("touchstart",(e)=>{
   isDown=true;
   sound.currentTime=0;
