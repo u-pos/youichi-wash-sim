@@ -3,18 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>陽一ウォッシュシミュレーター</title>
+<title>ウォッシュ</title>
 
 <style>
 body{
   margin:0;
-  background:#111;
+  background:#000;
   display:flex;
-  justify-content:center;
+  flex-direction:column;
   align-items:center;
+  justify-content:center;
   height:100vh;
   overflow:hidden;
   touch-action:none;
+  color:#fff;
+}
+
+/* HUD復活 */
+.hud{
+  width:360px;
+  padding:6px;
+}
+#barWrap{
+  width:100%;
+  height:8px;
+  background:#333;
+}
+#bar{
+  height:100%;
+  width:100%;
+  background:#4fc3f7;
 }
 
 .game{
@@ -42,22 +60,18 @@ body{
   position:absolute;
   top:10px;
   right:10px;
-  z-index:10;
+  z-index:999;
   display:flex;
   gap:5px;
-}
-
-button{
-  padding:8px 10px;
-  background:#222;
-  color:#fff;
-  border:none;
-  border-radius:6px;
 }
 </style>
 </head>
 
 <body>
+
+<div class="hud">
+  <div id="barWrap"><div id="bar"></div></div>
+</div>
 
 <div class="game" id="game">
   <img src="bg.png">
@@ -67,61 +81,60 @@ button{
   <img id="hose" src="hoseA.png">
 
   <div class="controls">
-    <button onclick="flipY()">上下反転</button>
-    <button onclick="flipX()">左右反転</button>
+    <button onclick="flipY()">上下</button>
+    <button onclick="flipX()">左右</button>
   </div>
 </div>
 
 <script>
-  
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let buffer = null;
-let source = null;
+/* ========= 音 ========= */
+let audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+let buffer=null;
+let source=null;
+
+/* ★事前ロード（ここ重要） */
+fetch("water.wav")
+.then(r=>r.arrayBuffer())
+.then(b=>audioCtx.decodeAudioData(b))
+.then(d=>buffer=d);
 
 async function startSound(){
+  if(!buffer) return;
 
-  // 初回だけロード
-  if(!buffer){
-    const res = await fetch("water.wav");
-    const arr = await res.arrayBuffer();
-    buffer = await audioCtx.decodeAudioData(arr);
-  }
-
-  if(audioCtx.state === "suspended"){
+  if(audioCtx.state==="suspended"){
     await audioCtx.resume();
   }
 
   if(source) return;
 
-  source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-
+  source=audioCtx.createBufferSource();
+  source.buffer=buffer;
+  source.loop=true;
   source.connect(audioCtx.destination);
-  source.start(0);
+  source.start();
 }
 
 function stopSound(){
   if(source){
     source.stop();
     source.disconnect();
-    source = null;
+    source=null;
   }
 }
+
+/* ========= 基本 ========= */
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
-const sound=document.getElementById("waterSound");
+const bar=document.getElementById("bar");
 
 const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-
-/* 状態 */
-let flipYFlag=false;
 let flipXFlag=false;
+let flipYFlag=false;
 
 /* 吸着 */
 const GRIP_X=0.48;
@@ -131,6 +144,7 @@ const GRIP_Y=0.42;
 const NOZZLE_X=0.08;
 const NOZZLE_Y=0.08;
 
+/* 画像 */
 const img=new Image();
 img.src="before.png";
 
@@ -142,23 +156,11 @@ img.onload=()=>{
   dCtx.drawImage(img,0,0);
 };
 
-/* 座標 */
-function toGame(x,y){
-  const r=game.getBoundingClientRect();
-  return {x:x-r.left,y:y-r.top};
-}
-
-function toCanvas(x,y){
-  const r=dirt.getBoundingClientRect();
-  return{
-    x:(x-r.left)*(dirt.width/r.width),
-    y:(y-r.top)*(dirt.height/r.height)
-  };
-}
-
-/* ノズル */
+/* ===== 座標（ここが核心） ===== */
 function getNozzle(){
+
   const rect=hose.getBoundingClientRect();
+  const gRect=game.getBoundingClientRect();
 
   let nx=rect.width*NOZZLE_X;
   let ny=rect.height*NOZZLE_Y;
@@ -166,7 +168,15 @@ function getNozzle(){
   if(flipXFlag) nx=rect.width-nx;
   if(flipYFlag) ny=rect.height-ny;
 
-  return toCanvas(rect.left+nx,rect.top+ny);
+  /* ★game座標へ */
+  let gx=rect.left-gRect.left+nx;
+  let gy=rect.top -gRect.top +ny;
+
+  /* ★canvasへ */
+  return{
+    x: gx*(dirt.width/gRect.width),
+    y: gy*(dirt.height/gRect.height)
+  };
 }
 
 /* 水 */
@@ -179,8 +189,8 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  let dx = flipXFlag ? 1 : -1;
-  let dy = flipYFlag ? 1 : -1;
+  let dx=flipXFlag?1:-1;
+  let dy=flipYFlag?1:-1;
 
   let len=Math.sqrt(dx*dx+dy*dy);
   dx/=len; dy/=len;
@@ -212,42 +222,34 @@ function sprayAll(){
 }
 
 /* 吸着 */
-function moveHose(clientX,clientY){
-  const p=toGame(clientX,clientY);
+function moveHose(x,y){
 
-  const w=hose.offsetWidth;
-  const h=hose.offsetHeight;
+  const gRect=game.getBoundingClientRect();
+  const rect=hose.getBoundingClientRect();
 
-  hose.style.left=(p.x-w*GRIP_X)+"px";
-  hose.style.top =(p.y-h*GRIP_Y)+"px";
+  const gx=rect.width*GRIP_X;
+  const gy=rect.height*GRIP_Y;
+
+  hose.style.left=(x-gRect.left-gx)+"px";
+  hose.style.top =(y-gRect.top -gy)+"px";
 }
 
 /* 反転 */
 function applyTransform(){
-  hose.style.transform = `
-    scaleX(${flipXFlag?-1:1})
-    scaleY(${flipYFlag?-1:1})
-  `;
+  hose.style.transform=
+    `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
-
-function flipY(){
-  flipYFlag=!flipYFlag;
-  applyTransform();
-}
-
-function flipX(){
-  flipXFlag=!flipXFlag;
-  applyTransform();
-}
+function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
+function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-window.addEventListener("pointerdown", async e=>{
-  isDown = true;
-  await startSound(); // ★awaitつける
+window.addEventListener("pointerdown",async e=>{
+  isDown=true;
+  await startSound();
 });
 
-window.addEventListener("pointerup", ()=>{
-  isDown = false;
+window.addEventListener("pointerup",()=>{
+  isDown=false;
   stopSound();
 });
 
