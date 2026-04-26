@@ -74,18 +74,17 @@ const sCtx=spray.getContext("2d");
 let isDown=false;
 let flipped=false;
 
-/* 吸着（黄色〇） */
+/* 吸着 */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
 
-/* ノズル（赤〇） */
+/* ノズル */
 const NOZZLE_X=0.14;
 const NOZZLE_Y=0.10;
 
 const img=new Image();
 img.src="before.png";
 
-/* 初期化 */
 img.onload=()=>{
   dirt.width=img.width;
   dirt.height=img.height;
@@ -94,46 +93,38 @@ img.onload=()=>{
   dCtx.drawImage(img,0,0);
 };
 
-/* 座標変換（game基準） */
-function toGamePos(clientX,clientY){
-  const rect=game.getBoundingClientRect();
-  return{
-    x:clientX-rect.left,
-    y:clientY-rect.top
-  };
+/* game座標 */
+function toGame(x,y){
+  const r=game.getBoundingClientRect();
+  return {x:x-r.left,y:y-r.top};
 }
 
-/* canvas変換 */
+/* canvas座標 */
 function toCanvas(x,y){
-  const rect=dirt.getBoundingClientRect();
+  const r=dirt.getBoundingClientRect();
   return{
-    x:(x-rect.left)*(dirt.width/rect.width),
-    y:(y-rect.top)*(dirt.height/rect.height)
+    x:(x-r.left)*(dirt.width/r.width),
+    y:(y-r.top)*(dirt.height/r.height)
   };
 }
 
-/* ノズル位置（反転対応） */
+/* ノズル */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
 
-  let nx = rect.width * NOZZLE_X;
-  let ny = rect.height * NOZZLE_Y;
+  let nx=rect.width*NOZZLE_X;
+  let ny=rect.height*NOZZLE_Y;
 
-  // ★反転補正（これが超重要）
   if(flipped){
-    nx = rect.width - nx;
-    ny = rect.height - ny;
+    nx=rect.width-nx;
+    ny=rect.height-ny;
   }
 
-  const x = rect.left + nx;
-  const y = rect.top  + ny;
-
-  return toCanvas(x,y);
+  return toCanvas(rect.left+nx,rect.top+ny);
 }
 
-/* 水＋削り */
+/* 水 */
 function sprayAll(){
-
   const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -141,16 +132,13 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  // ★方向（左上45度 / 右下45度）
-  let dx = flipped ? 1 : -1;
-  let dy = flipped ? 1 : -1;
+  let dx=flipped?1:-1;
+  let dy=flipped?1:-1;
 
   let len=Math.sqrt(dx*dx+dy*dy);
-  dx/=len;
-  dy/=len;
+  dx/=len; dy/=len;
 
-  for(let i=0;i<120;i++){
-
+  for(let i=0;i<100;i++){
     let spread=(Math.random()-0.5)*0.4;
 
     let sx=-dy*spread;
@@ -161,8 +149,8 @@ function sprayAll(){
 
     let dist=Math.random()*200;
 
-    let x=n.x + vx*dist;
-    let y=n.y + vy*dist;
+    let x=n.x+vx*dist;
+    let y=n.y+vy*dist;
 
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
@@ -177,27 +165,23 @@ function sprayAll(){
 
 /* 吸着 */
 function moveHose(clientX,clientY){
-
-  const pos=toGamePos(clientX,clientY);
+  const p=toGame(clientX,clientY);
 
   const w=hose.offsetWidth;
   const h=hose.offsetHeight;
 
-  const gx=w*GRIP_X;
-  const gy=h*GRIP_Y;
-
-  hose.style.left=(pos.x-gx)+"px";
-  hose.style.top =(pos.y-gy)+"px";
+  hose.style.left=(p.x-w*GRIP_X)+"px";
+  hose.style.top =(p.y-h*GRIP_Y)+"px";
 }
 
 /* 反転 */
 function flip(){
   flipped=!flipped;
-  hose.style.transform = flipped ? "rotate(180deg)" : "rotate(0deg)";
+  hose.style.transform=flipped?"rotate(180deg)":"rotate(0deg)";
 }
 
-/* 操作 */
-dirt.addEventListener("pointerdown",e=>{
+/* ▼ここが最重要修正 */
+window.addEventListener("pointerdown",e=>{
   isDown=true;
   sound.currentTime=0;
   sound.play();
@@ -208,7 +192,7 @@ window.addEventListener("pointerup",()=>{
   sound.pause();
 });
 
-dirt.addEventListener("pointermove",e=>{
+window.addEventListener("pointermove",e=>{
   if(!isDown) return;
 
   moveHose(e.clientX,e.clientY);
