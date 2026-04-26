@@ -241,15 +241,14 @@ function flipX(){
 }
 
 /* 操作 */
-window.addEventListener("pointerdown",e=>{
-  isDown=true;
-  sound.currentTime=0;
-  sound.play();
+window.addEventListener("pointerdown", async e=>{
+  isDown = true;
+  await startSound(); // ★awaitつける
 });
 
-window.addEventListener("pointerup",()=>{
-  isDown=false;
-  sound.pause();
+window.addEventListener("pointerup", ()=>{
+  isDown = false;
+  stopSound();
 });
 
 window.addEventListener("pointermove",e=>{
