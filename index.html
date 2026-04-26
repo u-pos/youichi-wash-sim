@@ -38,11 +38,21 @@ body{
   z-index:4;
 }
 
-.flipBtn{
+.controls{
   position:absolute;
   top:10px;
   right:10px;
   z-index:10;
+  display:flex;
+  gap:5px;
+}
+
+button{
+  padding:8px 10px;
+  background:#222;
+  color:#fff;
+  border:none;
+  border-radius:6px;
 }
 </style>
 </head>
@@ -56,7 +66,10 @@ body{
   <canvas id="spray"></canvas>
   <img id="hose" src="hoseA.png">
 
-  <button class="flipBtn" onclick="flip()">反転</button>
+  <div class="controls">
+    <button onclick="flipY()">上下</button>
+    <button onclick="flipX()">左右</button>
+  </div>
 </div>
 
 <audio id="waterSound" src="water.wav" loop></audio>
@@ -72,7 +85,10 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-let flipped=false;
+
+/* 状態 */
+let flipYFlag=false;
+let flipXFlag=false;
 
 /* 吸着 */
 const GRIP_X=0.62;
@@ -93,13 +109,12 @@ img.onload=()=>{
   dCtx.drawImage(img,0,0);
 };
 
-/* game座標 */
+/* 座標 */
 function toGame(x,y){
   const r=game.getBoundingClientRect();
   return {x:x-r.left,y:y-r.top};
 }
 
-/* canvas座標 */
 function toCanvas(x,y){
   const r=dirt.getBoundingClientRect();
   return{
@@ -115,16 +130,15 @@ function getNozzle(){
   let nx=rect.width*NOZZLE_X;
   let ny=rect.height*NOZZLE_Y;
 
-  if(flipped){
-    nx=rect.width-nx;
-    ny=rect.height-ny;
-  }
+  if(flipXFlag) nx=rect.width-nx;
+  if(flipYFlag) ny=rect.height-ny;
 
   return toCanvas(rect.left+nx,rect.top+ny);
 }
 
 /* 水 */
 function sprayAll(){
+
   const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
@@ -132,13 +146,14 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  let dx=flipped?1:-1;
-  let dy=flipped?1:-1;
+  let dx = flipXFlag ? 1 : -1;
+  let dy = flipYFlag ? 1 : -1;
 
   let len=Math.sqrt(dx*dx+dy*dy);
   dx/=len; dy/=len;
 
   for(let i=0;i<100;i++){
+
     let spread=(Math.random()-0.5)*0.4;
 
     let sx=-dy*spread;
@@ -175,12 +190,24 @@ function moveHose(clientX,clientY){
 }
 
 /* 反転 */
-function flip(){
-  flipped=!flipped;
-  hose.style.transform=flipped?"rotate(180deg)":"rotate(0deg)";
+function applyTransform(){
+  hose.style.transform = `
+    scaleX(${flipXFlag?-1:1})
+    scaleY(${flipYFlag?-1:1})
+  `;
 }
 
-/* ▼ここが最重要修正 */
+function flipY(){
+  flipYFlag=!flipYFlag;
+  applyTransform();
+}
+
+function flipX(){
+  flipXFlag=!flipXFlag;
+  applyTransform();
+}
+
+/* 操作 */
 window.addEventListener("pointerdown",e=>{
   isDown=true;
   sound.currentTime=0;
