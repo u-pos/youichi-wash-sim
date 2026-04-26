@@ -40,13 +40,12 @@ body{
   width:80%;
   position:absolute;
   pointer-events:none;
-
-  object-fit:contain; /* ←途切れ防止 */
+  object-fit:contain;
 
   left:80px;
   top:80px;
 
-  transform-origin:78% 58%; /* ←黄色〇位置 */
+  transform-origin:78% 58%;
 }
 
 canvas{touch-action:none;}
@@ -64,6 +63,27 @@ canvas{touch-action:none;}
   width:0%;
   background:#4fc3f7;
 }
+
+/* ▼操作ボタン */
+.controls{
+  position:absolute;
+  bottom:50px;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  z-index:10;
+}
+
+.controls button{
+  width:50px;
+  height:50px;
+  font-size:20px;
+  border:none;
+  border-radius:8px;
+  background:#222;
+  color:#fff;
+}
 </style>
 </head>
 
@@ -75,7 +95,16 @@ canvas{touch-action:none;}
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
   <img id="hose" src="hose.png">
+
   <div id="progress"><div id="bar"></div></div>
+
+  <!-- ▼回転ボタン -->
+  <div class="controls">
+    <button onclick="rotate(-90)">←</button>
+    <button onclick="rotate(180)">↓</button>
+    <button onclick="rotate(90)">→</button>
+    <button onclick="rotate(0)">↑</button>
+  </div>
 </div>
 
 <audio id="waterSound" src="water.wav" loop></audio>
@@ -92,32 +121,36 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
+
+/* ▼角度（固定制御） */
+let angleDeg=0;
 let angle=0;
 
-/* ★黄色〇（グリップ） */
+/* グリップ */
 const GRIP_X=0.78;
 const GRIP_Y=0.58;
 
-/* ★ノズル位置（画像ベース調整済み） */
-const NOZZLE_OFFSET_X = -120;
-const NOZZLE_OFFSET_Y = -180;
+/* ノズル位置（画像ベース） */
+function getNozzle(){
+  const rect=hose.getBoundingClientRect();
 
-let prevX=0;
-let prevY=0;
+  const nx = rect.left + rect.width * 0.12;
+  const ny = rect.top  + rect.height * 0.08;
 
+  return domToCanvas(nx, ny);
+}
+
+/* 初期化 */
 const dirtImg=new Image();
 dirtImg.src="before.png";
 
-/* 初期化 */
 function init(){
   const w=clean.naturalWidth;
   const h=clean.naturalHeight;
-
   dirt.width=w;
   dirt.height=h;
   spray.width=w;
   spray.height=h;
-
   dCtx.drawImage(dirtImg,0,0,w,h);
 }
 
@@ -129,7 +162,7 @@ function ready(){
 clean.onload=ready;
 dirtImg.onload=ready;
 
-/* DOM→Canvas変換 */
+/* 座標変換 */
 function domToCanvas(x,y){
   const rect=dirt.getBoundingClientRect();
   return{
@@ -138,27 +171,7 @@ function domToCanvas(x,y){
   };
 }
 
-/* グリップ位置 */
-function getGripDom(){
-  const rect=hose.getBoundingClientRect();
-  return{
-    x:rect.left + rect.width*GRIP_X,
-    y:rect.top  + rect.height*GRIP_Y
-  };
-}
-
-/* ノズル位置（回転込み） */
-function getNozzle(){
-  const rect = hose.getBoundingClientRect();
-
-  // ★画像内の先端（赤丸）
-  const nx = rect.left + rect.width * 0.12;
-  const ny = rect.top  + rect.height * 0.08;
-
-  return domToCanvas(nx, ny);
-}
-
-/* 水＋削り（完全一致） */
+/* 水＋削り */
 function sprayAll(){
   const n=getNozzle();
 
@@ -167,23 +180,19 @@ function sprayAll(){
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<160;i++){
-
+  for(let i=0;i<150;i++){
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
-
     let dist=Math.random()*260;
 
     let x=n.x + Math.cos(dir)*dist;
     let y=n.y + Math.sin(dir)*dist;
 
-    /* 水 */
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
-    /* 削り */
     dCtx.beginPath();
-    dCtx.arc(x,y,13,0,Math.PI*2);
+    dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
   }
 
@@ -203,26 +212,21 @@ function updateProgress(){
   bar.style.width=Math.floor(clear/total*100)+"%";
 }
 
+/* ホース移動（回転はボタンのみ） */
 function updateHose(x,y){
+  const rect=hose.getBoundingClientRect();
+  const gx=rect.width*GRIP_X;
+  const gy=rect.height*GRIP_Y;
 
-  const rect = hose.getBoundingClientRect();
-  const gx = rect.width * GRIP_X;
-  const gy = rect.height * GRIP_Y;
+  hose.style.left=(x-gx)+"px";
+  hose.style.top =(y-gy)+"px";
+}
 
-  hose.style.left = (x - gx) + "px";
-  hose.style.top  = (y - gy) + "px";
-
-  // ★グリップ位置を取得
-  const gripX = x;
-  const gripY = y;
-
-  // ★ノズル位置を仮想で出す（方向用）
-  const nozzleX = gripX - 120;
-  const nozzleY = gripY - 180;
-
-  angle = Math.atan2(nozzleY - gripY, nozzleX - gripX);
-
-  hose.style.transform = `rotate(${angle*180/Math.PI}deg)`;
+/* ▼回転ボタン */
+function rotate(deg){
+  angleDeg=deg;
+  angle=angleDeg * Math.PI / 180;
+  hose.style.transform=`rotate(${angleDeg}deg)`;
 }
 
 /* 操作 */
@@ -230,9 +234,6 @@ dirt.addEventListener("pointerdown",(e)=>{
   isDown=true;
   sound.currentTime=0;
   sound.play();
-
-  prevX=e.clientX; /* ★重要 */
-  prevY=e.clientY;
 });
 
 window.addEventListener("pointerup",()=>{
