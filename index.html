@@ -37,17 +37,16 @@ body{
 
 #hose{
   z-index:4;
-  width:80%;
+  width:260px; /* ←ここを固定サイズに変更 */
   position:absolute;
   object-fit:contain;
 
-  left:80px;
-  top:80px;
+  left:100px;
+  top:120px;
 
   transform-origin:62% 58%;
 }
 
-/* ボタン上 */
 .controls{
   position:absolute;
   top:10px;
@@ -100,15 +99,11 @@ const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
 
 let isDown=false;
-
-/* 回転 */
-let angleDeg=0;
 let angle=0;
 
-/* ★ここが最重要（画像基準） */
+/* 座標（ここは微調整OK） */
 const GRIP_X=0.62;
 const GRIP_Y=0.58;
-
 const NOZZLE_X=0.18;
 const NOZZLE_Y=0.12;
 
@@ -143,24 +138,21 @@ function domToCanvas(x,y){
   };
 }
 
-/* ノズル（回転完全対応） */
+/* ノズル（修正版） */
 function getNozzle(){
 
   const rect=hose.getBoundingClientRect();
 
-  // グリップ
   const gx = rect.left + rect.width * GRIP_X;
   const gy = rect.top  + rect.height * GRIP_Y;
 
-  // ノズル（元位置）
   const nx = rect.left + rect.width * NOZZLE_X;
   const ny = rect.top  + rect.height * NOZZLE_Y;
 
-  // 相対ベクトル
   let dx = nx - gx;
   let dy = ny - gy;
 
-  // 回転適用
+  // 回転
   let rx = dx * Math.cos(angle) - dy * Math.sin(angle);
   let ry = dx * Math.sin(angle) + dy * Math.cos(angle);
 
@@ -181,16 +173,14 @@ function sprayAll(){
 
     let spread=(Math.random()-0.5)*0.35;
     let dir=angle+spread;
-    let dist=Math.random()*260;
+    let dist=Math.random()*240;
 
     let x=n.x + Math.cos(dir)*dist;
     let y=n.y + Math.sin(dir)*dist;
 
-    // 水
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
-    // 削り（完全一致）
     dCtx.beginPath();
     dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
@@ -201,7 +191,6 @@ function sprayAll(){
 
 /* 吸着 */
 function updateHose(x,y){
-
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
@@ -212,7 +201,6 @@ function updateHose(x,y){
 
 /* 回転 */
 function rotate(deg){
-  angleDeg=deg;
   angle=deg*Math.PI/180;
   hose.style.transform=`rotate(${deg}deg)`;
 }
@@ -236,5 +224,6 @@ dirt.addEventListener("pointermove",(e)=>{
   sprayAll();
 });
 </script>
+
 </body>
 </html>
