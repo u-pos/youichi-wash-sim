@@ -91,7 +91,7 @@ button{
 </head>
 
 <body>
-
+<audio id="waterSound" src="water.wav" loop playsinline></audio>
 <div class="hud">
   <div id="percentText">残り 100%</div>
   <div id="gauge"><div id="bar"></div></div>
@@ -113,6 +113,7 @@ button{
 </div>
 
 <script>
+const sound = document.getElementById("waterSound");
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
@@ -134,43 +135,7 @@ let lastCheck=0;
 let initialDirt=0;
 
 /* ===== 音（確実版） ===== */
-/* ===== 音（完全安定版） ===== */
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let buffer = null;
-let source = null;
 
-/* ★確実に事前ロード */
-window.addEventListener("load", async ()=>{
-  const res = await fetch("water.wav");
-  const arr = await res.arrayBuffer();
-  buffer = await audioCtx.decodeAudioData(arr);
-});
-
-/* 再生 */
-async function startSound(){
-
-  if(audioCtx.state === "suspended"){
-    await audioCtx.resume(); // ←これが最重要
-  }
-
-  if(source || !buffer) return;
-
-  source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-
-  source.connect(audioCtx.destination);
-  source.start(0);
-}
-
-/* 停止 */
-function stopSound(){
-  if(source){
-    source.stop();
-    source.disconnect();
-    source = null;
-  }
-}
 
 /* 吸着 */
 const GRIP_X=0.45;
@@ -327,14 +292,19 @@ function flipY(){
 }
 
 /* 操作 */
-window.addEventListener("pointerdown",e=>{
+window.addEventListener("pointerdown", e=>{
   if(finished) return;
-  isDown=true;
-  await startSound();
+
+  isDown = true;
+
+  sound.currentTime = 0;
+  sound.play().catch(()=>{}); // ←失敗しても止まらない
 });
-window.addEventListener("pointerup",()=>{
-  isDown=false;
-  stopSound();
+
+window.addEventListener("pointerup", ()=>{
+  isDown = false;
+
+  sound.pause();
 });
 window.addEventListener("pointermove",e=>{
   if(!isDown) return;
