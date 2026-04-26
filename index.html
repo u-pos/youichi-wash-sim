@@ -40,6 +40,8 @@ body{
   position:absolute;
   pointer-events:none;
   transform-origin:78% 58%;
+  left: 280px;  /* ←右に移動 */
+  top: 420px;   /* ←下に移動 */
 }
 
 canvas{touch-action:none;}
@@ -184,24 +186,31 @@ function updateProgress(){
 }
 
 /* ホース */
+let prevX = 0;
+let prevY = 0;
+
 function updateHose(x,y){
 
   const rect=hose.getBoundingClientRect();
   const gx=rect.width*GRIP_X;
   const gy=rect.height*GRIP_Y;
 
-  // グリップ吸着
+  // 吸着
   hose.style.left=(x-gx)+"px";
   hose.style.top =(y-gy)+"px";
 
-  const grip = getGripDom();
+  // ★ここ修正（移動方向で角度決定）
+  let dx = x - prevX;
+  let dy = y - prevY;
 
-  const dx = x - grip.x;
-  const dy = y - grip.y;
-
-  angle = Math.atan2(dy,dx); // ←ここが対象
+  if(dx !== 0 || dy !== 0){
+    angle = Math.atan2(dy, dx);
+  }
 
   hose.style.transform=`rotate(${angle*180/Math.PI}deg)`;
+
+  prevX = x;
+  prevY = y;
 }
 
 /* pointer */
