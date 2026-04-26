@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陽一ウォッシュシミュレーター</title>
+
+<style>
+body{
+  margin:0;
+  background:#000;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  overflow:hidden;
+  touch-action:none;
+  color:#fff;
+  font-family:sans-serif;
+}
+
+/* ===== HUD（上） ===== */
+.hud{
+  width:360px;
+  padding:10px;
+  box-sizing:border-box;
+}
+
+#percentText{
+  font-size:14px;
+  margin-bottom:4px;
+}
+
+#gauge{
+  width:100%;
+  height:10px;
+  background:#333;
+  border-radius:5px;
+  overflow:hidden;
+}
+
+#bar{
+  height:100%;
+  width:100%;
+  background:#4fc3f7;
+}
+
+/* ===== ゲーム ===== */
+.game{
+  position:relative;
+  width:360px;
+  aspect-ratio:3/4;
+}
+
+.game img,.game canvas{
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+  object-fit:cover;
+}
+
+#hose{
+  position:absolute;
+  width:320px;
+  left:80px;
+  top:100px;
+  z-index:4;
+}
+
+/* ボタン */
+.controls{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:10;
+  display:flex;
+  gap:5px;
+}
+
+button{
+  background:#222;
+  color:#fff;
+  border:none;
+  padding:6px 8px;
+  border-radius:5px;
+}
+
+/* クリア画面 */
+#clear{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,0.8);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  font-size:24px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="hud">
+  <div id="percentText">残り 100%</div>
+  <div id="gauge"><div id="bar"></div></div>
+</div>
+
+<div class="game" id="game">
+  <img src="bg.png">
+  <img src="clean.png">
+  <canvas id="dirt"></canvas>
+  <canvas id="spray"></canvas>
+  <img id="hose" src="hoseA.png">
+
+  <div class="controls">
+    <button onclick="flipY()">上下反転</button>
+    <button onclick="flipX()">左右反転</button>
+  </div>
+
+  <div id="clear">Mission Complete</div>
+</div>
+
+<audio id="waterSound" src="water.wav" loop></audio>
+
+<script>
+const game=document.getElementById("game");
+const dirt=document.getElementById("dirt");
+const spray=document.getElementById("spray");
+const hose=document.getElementById("hose");
+const sound=document.getElementById("waterSound");
+
+const bar=document.getElementById("bar");
+const text=document.getElementById("percentText");
+const clear=document.getElementById("clear");
+
+const dCtx=dirt.getContext("2d");
+const sCtx=spray.getContext("2d");
+
+let isDown=false;
+let flipXFlag=false;
+let flipYFlag=false;
+let finished=false;
+
+const GRIP_X=0.62;
+const GRIP_Y=0.58;
+
+const NOZZLE_X=0.10;
+const NOZZLE_Y=0.06;
+
+const img=new Image();
+img.src="before.png";
+
+img.onload=()=>{
+  dirt.width=img.width;
+  dirt.height=img.height;
+  spray.width=img.width;
+  spray.height=img.height;
+  dCtx.drawImage(img,0,0);
+};
+
+/* 座標 */
+function toGame(x,y){
+  const r=game.getBoundingClientRect();
+  return {x:x-r.left,y:y-r.top};
+}
+
+function toCanvas(x,y){
+  const r=dirt.getBoundingClientRect();
+  return{
+    x:(x-r.left)*(dirt.width/r.width),
+    y:(y-r.top)*(dirt.height/r.height)
+  };
+}
+
+/* ノズル */
+function getNozzle(){
+  const rect=hose.getBoundingClientRect();
+
+  let nx=rect.width*NOZZLE_X;
+  let ny=rect.height*NOZZLE_Y;
+
+  if(flipXFlag) nx=rect.width-nx;
+  if(flipYFlag) ny=rect.height-ny;
+
+  return toCanvas(rect.left+nx,rect.top+ny);
+}
+
+/* 水 */
+function sprayAll(){
+  if(finished) return;
+
+  const n=getNozzle();
+
+  sCtx.clearRect(0,0,spray.width,spray.height);
+
+  dCtx.save();
+  dCtx.globalCompositeOperation="destination-out";
+
+  let dx = flipXFlag ? 1 : -1;
+  let dy = flipYFlag ? 1 : -1;
+
+  let len=Math.sqrt(dx*dx+dy*dy);
+  dx/=len; dy/=len;
+
+  for(let i=0;i<100;i++){
+
+    let spread=(Math.random()-0.5)*0.4;
+
+    let sx=-dy*spread;
+    let sy=dx*spread;
+
+    let vx=dx+sx;
+    let vy=dy+sy;
+
+    let dist=Math.random()*200;
+
+    let x=n.x+vx*dist;
+    let y=n.y+vy*dist;
+
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
+    sCtx.fillRect(x,y,2,6);
+
+    dCtx.beginPath();
+    dCtx.arc(x,y,12,0,Math.PI*2);
+    dCtx.fill();
+  }
+
+  dCtx.restore();
+
+  updateProgress();
+}
+
+/* 進捗 */
+function updateProgress(){
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+
+  let total=data.length/4;
+  let clearCount=0;
+
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]===0) clearCount++;
+  }
+
+  let percent=Math.floor((clearCount/total)*100);
+  let remain=100-percent;
+
+  bar.style.width=remain+"%";
+  text.textContent="残り "+remain+"%";
+
+  if(remain<=0 && !finished){
+    finished=true;
+    clear.style.display="flex";
+    sound.pause();
+  }
+}
+
+/* 吸着 */
+function moveHose(x,y){
+  const p=toGame(x,y);
+
+  const w=hose.offsetWidth;
+  const h=hose.offsetHeight;
+
+  hose.style.left=(p.x-w*GRIP_X)+"px";
+  hose.style.top =(p.y-h*GRIP_Y)+"px";
+}
+
+/* 反転 */
+function applyTransform(){
+  hose.style.transform=
+    `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
+}
+
+function flipX(){
+  flipXFlag=!flipXFlag;
+  applyTransform();
+}
+
+function flipY(){
+  flipYFlag=!flipYFlag;
+  applyTransform();
+}
+
+/* 操作 */
+window.addEventListener("pointerdown",e=>{
+  if(finished) return;
+  isDown=true;
+  sound.currentTime=0;
+  sound.play();
+});
+
+window.addEventListener("pointerup",()=>{
+  isDown=false;
+  sound.pause();
+});
+
+window.addEventListener("pointermove",e=>{
+  if(!isDown) return;
+
+  moveHose(e.clientX,e.clientY);
+  sprayAll();
+});
+</script>
+
+</body>
+</html>
