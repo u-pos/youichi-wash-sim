@@ -13,118 +13,118 @@ body{
   justify-content:center;
   align-items:center;
   height:100vh;
-  overflow:hidden;
 }
 
-canvas{
+.game{
+  position:relative;
   width:360px;
   aspect-ratio:3/4;
-  touch-action:none;
+}
+
+/* ★完全一致表示（ズレ防止） */
+.game canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
 }
 </style>
 </head>
 
 <body>
 
-<canvas id="game"></canvas>
+<div class="game">
+  <canvas id="bg"></canvas>
+  <canvas id="dirt"></canvas>
+  <canvas id="effect"></canvas>
+</div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const bg = document.getElementById("bg");
+const dirt = document.getElementById("dirt");
+const effect = document.getElementById("effect");
+
+const bgCtx = bg.getContext("2d");
+const dCtx = dirt.getContext("2d");
+const eCtx = effect.getContext("2d");
 
 const beforeImg = new Image();
 const cleanImg = new Image();
 const clearImg = new Image();
 
-beforeImg.src = "before.png";
-cleanImg.src = "clean.png";
-clearImg.src = "missionclear.png";
+beforeImg.src="before.png";
+cleanImg.src="clean.png";
+clearImg.src="missionclear.png";
 
-let loaded = 0;
-[beforeImg, cleanImg, clearImg].forEach(img=>{
-  img.onload = ()=>{
+let loaded=0;
+[beforeImg,cleanImg,clearImg].forEach(img=>{
+  img.onload=()=>{
     loaded++;
     if(loaded===3) init();
   };
 });
 
-let w, h;
+let w,h;
+let isDown=false;
 let finished=false;
 
 function init(){
+
   w = beforeImg.width;
   h = beforeImg.height;
 
-  canvas.width = w;
-  canvas.height = h;
+  [bg,dirt,effect].forEach(c=>{
+    c.width=w;
+    c.height=h;
+  });
 
-  draw();
+  // 背景（常に下）
+  bgCtx.drawImage(cleanImg,0,0,w,h);
+
+  // 汚れ（削る対象）
+  dCtx.drawImage(beforeImg,0,0,w,h);
 }
 
-function draw(){
-
-  ctx.clearRect(0,0,w,h);
-
-  // 背景
-  ctx.drawImage(cleanImg,0,0,w,h);
-
-  // 汚れ
-  ctx.globalCompositeOperation="source-over";
-  ctx.drawImage(beforeImg,0,0,w,h);
-
-  // クリア時
-  if(finished){
-    ctx.drawImage(clearImg,0,0,w,h);
-  }
-}
-
-/* 擬似削り */
+/* 削り */
 function cleanAt(x,y){
 
-  ctx.globalCompositeOperation="destination-out";
+  dCtx.save();
+  dCtx.globalCompositeOperation="destination-out";
 
   for(let i=0;i<20;i++){
-    let dx = (Math.random()-0.5)*40;
-    let dy = (Math.random()-0.5)*40;
+    let dx=(Math.random()-0.5)*40;
+    let dy=(Math.random()-0.5)*40;
 
-    ctx.beginPath();
-    ctx.arc(x+dx,y+dy,15,0,Math.PI*2);
-    ctx.fill();
+    dCtx.beginPath();
+    dCtx.arc(x+dx,y+dy,15,0,Math.PI*2);
+    dCtx.fill();
   }
 
-  ctx.globalCompositeOperation="source-over";
+  dCtx.restore();
+
+  drawEffect(x,y);
 }
 
-/* タッチ */
-let isDown=false;
+/* 水エフェクト */
+function drawEffect(x,y){
 
-canvas.addEventListener("pointerdown",()=>{
-  if(finished) return;
-  isDown=true;
-});
+  eCtx.clearRect(0,0,w,h);
 
-window.addEventListener("pointerup",()=>{
-  isDown=false;
-});
-
-canvas.addEventListener("pointermove",e=>{
-  if(!isDown || finished) return;
-
-  const rect = canvas.getBoundingClientRect();
-
-  let x = (e.clientX - rect.left)*(w/rect.width);
-  let y = (e.clientY - rect.top)*(h/rect.height);
-
-  cleanAt(x,y);
-  draw();
-
-  checkClear();
-});
+  for(let i=0;i<60;i++){
+    eCtx.fillStyle="rgba(255,255,255,0.3)";
+    eCtx.fillRect(
+      x+(Math.random()*40-20),
+      y+(Math.random()*40-20),
+      2,6
+    );
+  }
+}
 
 /* クリア判定 */
 function checkClear(){
 
-  const data = ctx.getImageData(0,0,w,h).data;
+  const data=dCtx.getImageData(0,0,w,h).data;
 
   let remain=0;
 
@@ -134,9 +134,34 @@ function checkClear(){
 
   if(remain < data.length/4*0.02){
     finished=true;
-    draw();
+
+    // ★クリア画像上書き
+    bgCtx.clearRect(0,0,w,h);
+    bgCtx.drawImage(clearImg,0,0,w,h);
   }
 }
+
+/* タッチ */
+bg.addEventListener("pointerdown",()=>{
+  if(finished) return;
+  isDown=true;
+});
+
+window.addEventListener("pointerup",()=>{
+  isDown=false;
+});
+
+bg.addEventListener("pointermove",e=>{
+  if(!isDown || finished) return;
+
+  const rect=bg.getBoundingClientRect();
+
+  let x=(e.clientX-rect.left)*(w/rect.width);
+  let y=(e.clientY-rect.top)*(h/rect.height);
+
+  cleanAt(x,y);
+  checkClear();
+});
 </script>
 
 </body>
