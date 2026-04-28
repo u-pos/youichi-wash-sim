@@ -3,35 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ウォッシュ安定版</title>
+<title>ウォッシュ完成版</title>
 
 <style>
 body{
   margin:0;
   background:#000;
   display:flex;
-  justify-content:center;
+  flex-direction:column;
   align-items:center;
+  justify-content:center;
   height:100vh;
   overflow:hidden;
-  touch-action:none;
+  color:#fff;
 }
 
+/* HUD */
+.hud{
+  width:360px;
+  padding:6px;
+}
+#percent{
+  font-size:14px;
+}
+#barWrap{
+  width:100%;
+  height:8px;
+  background:#333;
+}
+#bar{
+  height:100%;
+  width:100%;
+  background:#4fc3f7;
+}
+
+/* ゲーム */
 .game{
   position:relative;
   width:360px;
-  aspect-ratio:3/4;
+  height:480px; /* ←固定（重要） */
 }
 
+/* ★object-fit削除 */
 .game img,.game canvas{
   position:absolute;
   top:0;
   left:0;
   width:100%;
   height:100%;
-  object-fit:cover;
 }
 
+/* ホース */
 #hose{
   position:absolute;
   width:320px;
@@ -40,6 +62,7 @@ body{
   z-index:4;
 }
 
+/* ボタン */
 .controls{
   position:absolute;
   top:10px;
@@ -52,6 +75,11 @@ body{
 </head>
 
 <body>
+
+<div class="hud">
+  <div id="percent">残り 100%</div>
+  <div id="barWrap"><div id="bar"></div></div>
+</div>
 
 <div class="game" id="game">
   <img src="bg.png">
@@ -71,6 +99,8 @@ const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
+const bar=document.getElementById("bar");
+const percent=document.getElementById("percent");
 
 const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
@@ -79,33 +109,39 @@ let isDown=false;
 let flipXFlag=false;
 let flipYFlag=false;
 
-/* 吸着位置 */
+/* 吸着 */
 const GRIP_X=0.48;
 const GRIP_Y=0.42;
 
-/* ノズル位置 */
+/* ノズル */
 const NOZZLE_X=0.08;
 const NOZZLE_Y=0.08;
+
+let totalPixels=0;
 
 const img=new Image();
 img.src="before.png";
 
-/* 初期化（重要：画面サイズ基準） */
+/* ★完全一致で初期化 */
 img.onload=()=>{
-  const rect = game.getBoundingClientRect();
+  const w = game.clientWidth;
+  const h = game.clientHeight;
 
-  dirt.width = rect.width;
-  dirt.height = rect.height;
+  dirt.width = w;
+  dirt.height = h;
+  spray.width = w;
+  spray.height = h;
 
-  spray.width = rect.width;
-  spray.height = rect.height;
+  dCtx.drawImage(img,0,0,w,h);
 
-  dCtx.drawImage(img,0,0,rect.width,rect.height);
+  const data=dCtx.getImageData(0,0,w,h).data;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>0) totalPixels++;
+  }
 };
 
-/* ノズル位置 */
+/* ノズル */
 function getNozzle(){
-
   const rect=hose.getBoundingClientRect();
   const gRect=game.getBoundingClientRect();
 
@@ -115,10 +151,10 @@ function getNozzle(){
   if(flipXFlag) nx=rect.width-nx;
   if(flipYFlag) ny=rect.height-ny;
 
-  let gx=rect.left-gRect.left+nx;
-  let gy=rect.top -gRect.top +ny;
-
-  return { x:gx, y:gy };
+  return{
+    x:(rect.left-gRect.left+nx),
+    y:(rect.top -gRect.top +ny)
+  };
 }
 
 /* 水＋削り */
@@ -152,22 +188,37 @@ function sprayAll(){
     let x=n.x+vx*dist;
     let y=n.y+vy*dist;
 
-    /* 水 */
     sCtx.fillStyle="rgba(255,255,255,0.35)";
     sCtx.fillRect(x,y,2,6);
 
-    /* 削り */
     dCtx.beginPath();
     dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
   }
 
   dCtx.restore();
+
+  updateProgress();
 }
 
-/* ホース吸着 */
-function moveHose(x,y){
+/* 進捗 */
+function updateProgress(){
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
+  let remain=0;
+
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>0) remain++;
+  }
+
+  let p=Math.floor(remain/totalPixels*100);
+
+  bar.style.width=p+"%";
+  percent.innerText="残り "+p+"%";
+}
+
+/* 吸着 */
+function moveHose(x,y){
   const gRect=game.getBoundingClientRect();
   const rect=hose.getBoundingClientRect();
 
@@ -180,29 +231,15 @@ function applyTransform(){
   hose.style.transform=
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
-
-function flipX(){
-  flipXFlag=!flipXFlag;
-  applyTransform();
-}
-
-function flipY(){
-  flipYFlag=!flipYFlag;
-  applyTransform();
-}
+function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
+function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-window.addEventListener("pointerdown",e=>{
-  isDown=true;
-});
-
-window.addEventListener("pointerup",()=>{
-  isDown=false;
-});
+window.addEventListener("pointerdown",()=>{ isDown=true; });
+window.addEventListener("pointerup",()=>{ isDown=false; });
 
 window.addEventListener("pointermove",e=>{
   if(!isDown) return;
-
   moveHose(e.clientX,e.clientY);
   sprayAll();
 });
