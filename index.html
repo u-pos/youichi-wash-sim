@@ -10,242 +10,95 @@ body{
   margin:0;
   background:#000;
   display:flex;
-  flex-direction:column;
-  align-items:center;
   justify-content:center;
+  align-items:center;
   height:100vh;
   overflow:hidden;
-  touch-action:none;
-  color:#fff;
 }
 
-.hud{
-  width:360px;
-  padding:6px;
-}
-#barWrap{
-  width:100%;
-  height:8px;
-  background:#333;
-}
-#bar{
-  height:100%;
-  width:100%;
-  background:#4fc3f7;
-}
-
-#percent{
-  font-size:14px;
-  margin-bottom:4px;
-}
-
-.game{
-  position:relative;
+canvas{
   width:360px;
   aspect-ratio:3/4;
-}
-
-.game img,.game canvas{
-  position:absolute;
-  top:0;left:0;
-  width:100%;height:100%;
-  object-fit:cover;
-}
-
-#hose{
-  position:absolute;
-  width:320px;
-  left:80px;
-  top:100px;
-  z-index:4;
-}
-
-#clearImg{
-  z-index:5;
-  display:none;
-}
-
-#restartBtn{
-  position:absolute;
-  bottom:-60px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:12px 20px;
-  font-size:16px;
-  background:#fff;
-  color:#000;
-  border:none;
-  border-radius:8px;
-  display:none;
-}
-
-.controls{
-  position:absolute;
-  top:10px;
-  right:10px;
-  z-index:999;
-  display:flex;
-  gap:5px;
+  touch-action:none;
 }
 </style>
 </head>
 
 <body>
 
-<div class="hud">
-  <div id="percent">残り 100%</div>
-  <div id="barWrap"><div id="bar"></div></div>
-</div>
-
-<div class="game" id="game">
-  <img src="bg.png">
-  <img src="clean.png">
-  <canvas id="dirt"></canvas>
-  <canvas id="spray"></canvas>
-  <img id="clearImg" src="missionclear.png">
-  <img id="hose" src="hoseA.png">
-
-  <div class="controls">
-    <button onclick="flipY()">上下</button>
-    <button onclick="flipX()">左右</button>
-  </div>
-
-  <button id="restartBtn" onclick="restart()">再度きれいにする</button>
-</div>
+<canvas id="game"></canvas>
 
 <script>
-const game=document.getElementById("game");
-const dirt=document.getElementById("dirt");
-const spray=document.getElementById("spray");
-const hose=document.getElementById("hose");
-const bar=document.getElementById("bar");
-const percent=document.getElementById("percent");
-const clearImg=document.getElementById("clearImg");
-const restartBtn=document.getElementById("restartBtn");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const dCtx=dirt.getContext("2d");
-const sCtx=spray.getContext("2d");
+const beforeImg = new Image();
+const cleanImg = new Image();
+const clearImg = new Image();
 
-let isDown=false;
-let flipXFlag=false;
-let flipYFlag=false;
+beforeImg.src = "before.png";
+cleanImg.src = "clean.png";
+clearImg.src = "missionclear.png";
+
+let loaded = 0;
+[beforeImg, cleanImg, clearImg].forEach(img=>{
+  img.onload = ()=>{
+    loaded++;
+    if(loaded===3) init();
+  };
+});
+
+let w, h;
 let finished=false;
 
-const GRIP_X=0.48;
-const GRIP_Y=0.42;
-const NOZZLE_X=0.08;
-const NOZZLE_Y=0.08;
+function init(){
+  w = beforeImg.width;
+  h = beforeImg.height;
 
-const img=new Image();
-img.src="before.png";
+  canvas.width = w;
+  canvas.height = h;
 
-/* ★ここが重要修正 */
-img.onload=()=>{
-  const rect = game.getBoundingClientRect();
-
-  dirt.width = rect.width;
-  dirt.height = rect.height;
-  spray.width = rect.width;
-  spray.height = rect.height;
-
-  dCtx.drawImage(img,0,0,rect.width,rect.height);
-};
-
-function getNozzle(){
-  const rect=hose.getBoundingClientRect();
-  const gRect=game.getBoundingClientRect();
-
-  let nx=rect.width*NOZZLE_X;
-  let ny=rect.height*NOZZLE_Y;
-
-  if(flipXFlag) nx=rect.width-nx;
-  if(flipYFlag) ny=rect.height-ny;
-
-  let gx=rect.left-gRect.left+nx;
-  let gy=rect.top -gRect.top +ny;
-
-  return { x:gx, y:gy }; // ★変換しない
+  draw();
 }
 
-function sprayAll(){
-  const n=getNozzle();
+function draw(){
 
-  sCtx.clearRect(0,0,spray.width,spray.height);
+  ctx.clearRect(0,0,w,h);
 
-  dCtx.save();
-  dCtx.globalCompositeOperation="destination-out";
+  // 背景
+  ctx.drawImage(cleanImg,0,0,w,h);
 
-  let dx=flipXFlag?1:-1;
-  let dy=flipYFlag?1:-1;
+  // 汚れ
+  ctx.globalCompositeOperation="source-over";
+  ctx.drawImage(beforeImg,0,0,w,h);
 
-  let len=Math.sqrt(dx*dx+dy*dy);
-  dx/=len; dy/=len;
-
-  for(let i=0;i<100;i++){
-    let spread=(Math.random()-0.5)*0.4;
-
-    let sx=-dy*spread;
-    let sy=dx*spread;
-
-    let vx=dx+sx;
-    let vy=dy+sy;
-
-    let dist=Math.random()*200;
-
-    let x=n.x+vx*dist;
-    let y=n.y+vy*dist;
-
-    sCtx.fillStyle="rgba(255,255,255,0.35)";
-    sCtx.fillRect(x,y,2,6);
-
-    dCtx.beginPath();
-    dCtx.arc(x,y,12,0,Math.PI*2);
-    dCtx.fill();
-  }
-
-  dCtx.restore();
-
-  updateProgress();
-}
-
-function updateProgress(){
-  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
-
-  let total=data.length/4;
-  let remain=0;
-
-  for(let i=3;i<data.length;i+=4){
-    if(data[i]>0) remain++;
-  }
-
-  let percentVal=Math.floor(remain/total*100);
-
-  bar.style.width=percentVal+"%";
-  percent.innerText="残り "+percentVal+"%";
-
-  if(percentVal<=1 && !finished){
-    finished=true;
-    clearImg.style.display="block";
-    restartBtn.style.display="block";
+  // クリア時
+  if(finished){
+    ctx.drawImage(clearImg,0,0,w,h);
   }
 }
 
-function moveHose(x,y){
-  const gRect=game.getBoundingClientRect();
-  const rect=hose.getBoundingClientRect();
+/* 擬似削り */
+function cleanAt(x,y){
 
-  hose.style.left=(x-gRect.left-rect.width*GRIP_X)+"px";
-  hose.style.top =(y-gRect.top -rect.height*GRIP_Y)+"px";
+  ctx.globalCompositeOperation="destination-out";
+
+  for(let i=0;i<20;i++){
+    let dx = (Math.random()-0.5)*40;
+    let dy = (Math.random()-0.5)*40;
+
+    ctx.beginPath();
+    ctx.arc(x+dx,y+dy,15,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation="source-over";
 }
 
-function applyTransform(){
-  hose.style.transform=
-    `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
-}
-function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
-function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
+/* タッチ */
+let isDown=false;
 
-window.addEventListener("pointerdown",e=>{
+canvas.addEventListener("pointerdown",()=>{
   if(finished) return;
   isDown=true;
 });
@@ -254,24 +107,35 @@ window.addEventListener("pointerup",()=>{
   isDown=false;
 });
 
-window.addEventListener("pointermove",e=>{
+canvas.addEventListener("pointermove",e=>{
   if(!isDown || finished) return;
-  moveHose(e.clientX,e.clientY);
-  sprayAll();
+
+  const rect = canvas.getBoundingClientRect();
+
+  let x = (e.clientX - rect.left)*(w/rect.width);
+  let y = (e.clientY - rect.top)*(h/rect.height);
+
+  cleanAt(x,y);
+  draw();
+
+  checkClear();
 });
 
-function restart(){
-  const rect = game.getBoundingClientRect();
-  dCtx.clearRect(0,0,dirt.width,dirt.height);
-  dCtx.drawImage(img,0,0,rect.width,rect.height);
+/* クリア判定 */
+function checkClear(){
 
-  bar.style.width="100%";
-  percent.innerText="残り 100%";
+  const data = ctx.getImageData(0,0,w,h).data;
 
-  clearImg.style.display="none";
-  restartBtn.style.display="none";
+  let remain=0;
 
-  finished=false;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>10) remain++;
+  }
+
+  if(remain < data.length/4*0.02){
+    finished=true;
+    draw();
+  }
 }
 </script>
 
