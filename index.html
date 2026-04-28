@@ -3,315 +3,140 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>陽一ウォッシュシミュレーター</title>
+<title>ウォッシュ</title>
 
 <style>
 body{
   margin:0;
   background:#000;
   display:flex;
-  flex-direction:column;
-  align-items:center;
   justify-content:center;
+  align-items:center;
   height:100vh;
   overflow:hidden;
-  touch-action:none;
-  color:#fff;
-  font-family:sans-serif;
 }
 
-.hud{
-  width:360px;
-  padding:10px;
-}
-
-#gauge{
-  width:100%;
-  height:10px;
-  background:#333;
-  border-radius:5px;
-  overflow:hidden;
-}
-#bar{
-  height:100%;
-  width:100%;
-  background:#4fc3f7;
-}
-
-.game{
-  position:relative;
+canvas{
   width:360px;
   aspect-ratio:3/4;
-}
-
-.game img,.game canvas{
-  width:100%;
-  height:100%;
-  object-fit:contain; /* ←これ */
-  background:#000;
-}
-
-#hose{
-  position:absolute;
-  width:320px;
-  left:80px;
-  top:100px;
-  z-index:4;
-}
-
-/* ★ボタン最前面 */
-.controls{
-  position:absolute;
-  top:10px;
-  right:10px;
-  display:flex;
-  gap:5px;
-  z-index:9999;
-}
-
-button{
-  background:#222;
-  color:#fff;
-  border:none;
-  padding:6px 8px;
-  border-radius:5px;
-}
-
-#clear{
-  position:absolute;
-  inset:0;
-  background:rgba(0,0,0,0.8);
-  display:none;
-  justify-content:center;
-  align-items:center;
-  font-size:24px;
-  z-index:9998;
+  touch-action:none;
 }
 </style>
 </head>
 
 <body>
-<audio id="waterSound" src="water.wav" loop playsinline></audio>
-<div class="hud">
-  <div id="percentText">残り 100%</div>
-  <div id="gauge"><div id="bar"></div></div>
-</div>
 
-<div class="game" id="game">
-  <img src="bg.png">
-  <img src="clean.png">
-  <canvas id="dirt"></canvas>
-  <canvas id="spray"></canvas>
-  <img id="hose" src="hoseA.png">
-
-  <div class="controls">
-    <button onclick="flipY()">上下反転</button>
-    <button onclick="flipX()">左右反転</button>
-  </div>
-
-  <div id="clear">Mission Complete</div>
-</div>
+<canvas id="game"></canvas>
 
 <script>
-const sound = document.getElementById("waterSound");
-const game=document.getElementById("game");
-const dirt=document.getElementById("dirt");
-const spray=document.getElementById("spray");
-const hose=document.getElementById("hose");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const bar=document.getElementById("bar");
-const text=document.getElementById("percentText");
-const clear=document.getElementById("clear");
+const beforeImg = new Image();
+const cleanImg = new Image();
+const clearImg = new Image();
 
-const dCtx=dirt.getContext("2d");
-const sCtx=spray.getContext("2d");
+beforeImg.src = "before.png";
+cleanImg.src = "clean.png";
+clearImg.src = "missionclear.png";
 
-let isDown=false;
-let flipXFlag=false;
-let flipYFlag=false;
-let finished=false;
-let lastCheck=0;
-
-let initialDirt=0;
-
-/* ===== 音（確実版） ===== */
-
-
-/* 吸着 */
-const GRIP_X=0.45;
-const GRIP_Y=0.45;
-
-/* ノズル */
-const NOZZLE_X=0.08;
-const NOZZLE_Y=0.07;
-
-/* 画像 */
-const img=new Image();
-img.src="before.png";
-
-img.onload=()=>{
-  dirt.width=img.width;
-  dirt.height=img.height;
-  spray.width=img.width;
-  spray.height=img.height;
-  dCtx.drawImage(img,0,0);
-
-  calculateInitial();
-};
-
-/* 初期汚れ */
-function calculateInitial(){
-  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
-  for(let i=3;i<data.length;i+=4){
-    if(data[i] > 10) initialDirt++;
-  }
-}
-
-/* 座標 */
-function toGame(x,y){
-  const r=game.getBoundingClientRect();
-  return {x:x-r.left,y:y-r.top};
-}
-function toCanvas(x,y){
-  const r=dirt.getBoundingClientRect();
-  return{
-    x:(x-r.left)*(dirt.width/r.width),
-    y:(y-r.top)*(dirt.height/r.height)
+let loaded = 0;
+[beforeImg, cleanImg, clearImg].forEach(img=>{
+  img.onload = ()=>{
+    loaded++;
+    if(loaded===3) init();
   };
+});
+
+let w, h;
+let finished=false;
+
+function init(){
+  w = beforeImg.width;
+  h = beforeImg.height;
+
+  canvas.width = w;
+  canvas.height = h;
+
+  draw();
 }
 
-/* ノズル */
-function getNozzle(){
-  const rect=hose.getBoundingClientRect();
+function draw(){
 
-  let nx=rect.width*NOZZLE_X;
-  let ny=rect.height*NOZZLE_Y;
+  ctx.clearRect(0,0,w,h);
 
-  if(flipXFlag) nx=rect.width-nx;
-  if(flipYFlag) ny=rect.height-ny;
+  // 背景
+  ctx.drawImage(cleanImg,0,0,w,h);
 
-  return toCanvas(rect.left+nx,rect.top+ny);
+  // 汚れ
+  ctx.globalCompositeOperation="source-over";
+  ctx.drawImage(beforeImg,0,0,w,h);
+
+  // クリア時
+  if(finished){
+    ctx.drawImage(clearImg,0,0,w,h);
+  }
 }
 
-/* 水 */
-function sprayAll(){
+/* 擬似削り */
+function cleanAt(x,y){
+
+  ctx.globalCompositeOperation="destination-out";
+
+  for(let i=0;i<20;i++){
+    let dx = (Math.random()-0.5)*40;
+    let dy = (Math.random()-0.5)*40;
+
+    ctx.beginPath();
+    ctx.arc(x+dx,y+dy,15,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation="source-over";
+}
+
+/* タッチ */
+let isDown=false;
+
+canvas.addEventListener("pointerdown",()=>{
   if(finished) return;
+  isDown=true;
+});
 
-  const n=getNozzle();
+window.addEventListener("pointerup",()=>{
+  isDown=false;
+});
 
-  sCtx.clearRect(0,0,spray.width,spray.height);
+canvas.addEventListener("pointermove",e=>{
+  if(!isDown || finished) return;
 
-  dCtx.save();
-  dCtx.globalCompositeOperation="destination-out";
+  const rect = canvas.getBoundingClientRect();
 
-  let dx = flipXFlag ? 1 : -1;
-  let dy = flipYFlag ? 1 : -1;
+  let x = (e.clientX - rect.left)*(w/rect.width);
+  let y = (e.clientY - rect.top)*(h/rect.height);
 
-  let len=Math.sqrt(dx*dx+dy*dy);
-  dx/=len; dy/=len;
+  cleanAt(x,y);
+  draw();
 
-  for(let i=0;i<100;i++){
-    let spread=(Math.random()-0.5)*0.4;
+  checkClear();
+});
 
-    let sx=-dy*spread;
-    let sy=dx*spread;
+/* クリア判定 */
+function checkClear(){
 
-    let vx=dx+sx;
-    let vy=dy+sy;
+  const data = ctx.getImageData(0,0,w,h).data;
 
-    let dist=Math.random()*200;
-
-    let x=n.x+vx*dist;
-    let y=n.y+vy*dist;
-
-    sCtx.fillStyle="rgba(255,255,255,0.35)";
-    sCtx.fillRect(x,y,2,6);
-
-    dCtx.beginPath();
-    dCtx.arc(x,y,12,0,Math.PI*2);
-    dCtx.fill();
-  }
-
-  dCtx.restore();
-
-  if(performance.now() - lastCheck > 200){
-    updateProgress();
-    lastCheck = performance.now();
-  }
-}
-
-/* 進捗 */
-function updateProgress(){
-
-  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
-
-  let current=0;
+  let remain=0;
 
   for(let i=3;i<data.length;i+=4){
-    if(data[i] > 10) current++;
+    if(data[i]>10) remain++;
   }
 
-  let remain = Math.ceil((current / initialDirt) * 100);
-
-  if(remain <= 1) remain = 0;
-
-  bar.style.width=remain+"%";
-  text.textContent="残り "+remain+"%";
-
-  if(remain === 0 && !finished){
+  if(remain < data.length/4*0.02){
     finished=true;
-    clear.style.display="flex";
-    stopSound();
+    draw();
   }
 }
-
-/* 吸着 */
-function moveHose(x,y){
-  const p=toGame(x,y);
-
-  const w=hose.offsetWidth;
-  const h=hose.offsetHeight;
-
-  hose.style.left=(p.x-w*GRIP_X)+"px";
-  hose.style.top =(p.y-h*GRIP_Y)+"px";
-}
-
-/* 反転 */
-function applyTransform(){
-  hose.style.transform=
-    `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
-}
-
-function flipX(){
-  flipXFlag=!flipXFlag;
-  applyTransform();
-}
-function flipY(){
-  flipYFlag=!flipYFlag;
-  applyTransform();
-}
-
-/* 操作 */
-window.addEventListener("pointerdown", e=>{
-  if(finished) return;
-
-  isDown = true;
-
-  sound.currentTime = 0;
-  sound.play().catch(()=>{}); // ←失敗しても止まらない
-});
-
-window.addEventListener("pointerup", ()=>{
-  isDown = false;
-
-  sound.pause();
-});
-window.addEventListener("pointermove",e=>{
-  if(!isDown) return;
-
-  moveHose(e.clientX,e.clientY);
-  sprayAll();
-});
 </script>
 
 </body>
