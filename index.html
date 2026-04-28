@@ -21,7 +21,6 @@ body{
   aspect-ratio:3/4;
 }
 
-/* ★完全一致表示（ズレ防止） */
 .game canvas{
   position:absolute;
   top:0;
@@ -79,14 +78,10 @@ function init(){
     c.height=h;
   });
 
-  // 背景（常に下）
   bgCtx.drawImage(cleanImg,0,0,w,h);
-
-  // 汚れ（削る対象）
   dCtx.drawImage(beforeImg,0,0,w,h);
 }
 
-/* 削り */
 function cleanAt(x,y){
 
   dCtx.save();
@@ -106,7 +101,6 @@ function cleanAt(x,y){
   drawEffect(x,y);
 }
 
-/* 水エフェクト */
 function drawEffect(x,y){
 
   eCtx.clearRect(0,0,w,h);
@@ -121,7 +115,6 @@ function drawEffect(x,y){
   }
 }
 
-/* クリア判定 */
 function checkClear(){
 
   const data=dCtx.getImageData(0,0,w,h).data;
@@ -135,13 +128,11 @@ function checkClear(){
   if(remain < data.length/4*0.02){
     finished=true;
 
-    // ★クリア画像上書き
     bgCtx.clearRect(0,0,w,h);
     bgCtx.drawImage(clearImg,0,0,w,h);
   }
 }
 
-/* タッチ */
 bg.addEventListener("pointerdown",()=>{
   if(finished) return;
   isDown=true;
