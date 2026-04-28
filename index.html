@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ウォッシュ</title>
+<title>ウォッシュ安定版</title>
 
 <style>
 body{
@@ -13,6 +13,8 @@ body{
   justify-content:center;
   align-items:center;
   height:100vh;
+  overflow:hidden;
+  touch-action:none;
 }
 
 .game{
@@ -21,120 +23,176 @@ body{
   aspect-ratio:3/4;
 }
 
-.game canvas{
+.game img,.game canvas{
   position:absolute;
   top:0;
   left:0;
   width:100%;
   height:100%;
+  object-fit:cover;
+}
+
+#hose{
+  position:absolute;
+  width:320px;
+  left:80px;
+  top:100px;
+  z-index:4;
+}
+
+.controls{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:999;
+  display:flex;
+  gap:5px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="game">
-  <canvas id="bg"></canvas>
+<div class="game" id="game">
+  <img src="bg.png">
+  <img src="clean.png">
   <canvas id="dirt"></canvas>
-  <canvas id="effect"></canvas>
+  <canvas id="spray"></canvas>
+  <img id="hose" src="hoseA.png">
+
+  <div class="controls">
+    <button onclick="flipY()">上下</button>
+    <button onclick="flipX()">左右</button>
+  </div>
 </div>
 
 <script>
-const bg = document.getElementById("bg");
-const dirt = document.getElementById("dirt");
-const effect = document.getElementById("effect");
+const game=document.getElementById("game");
+const dirt=document.getElementById("dirt");
+const spray=document.getElementById("spray");
+const hose=document.getElementById("hose");
 
-const bgCtx = bg.getContext("2d");
-const dCtx = dirt.getContext("2d");
-const eCtx = effect.getContext("2d");
+const dCtx=dirt.getContext("2d");
+const sCtx=spray.getContext("2d");
 
-const beforeImg = new Image();
-const cleanImg = new Image();
-const clearImg = new Image();
-
-beforeImg.src="before.png";
-cleanImg.src="clean.png";
-clearImg.src="missionclear.png";
-
-let loaded=0;
-[beforeImg,cleanImg,clearImg].forEach(img=>{
-  img.onload=()=>{
-    loaded++;
-    if(loaded===3) init();
-  };
-});
-
-let w,h;
 let isDown=false;
-let finished=false;
+let flipXFlag=false;
+let flipYFlag=false;
 
-function init(){
+/* 吸着位置 */
+const GRIP_X=0.48;
+const GRIP_Y=0.42;
 
-  w = beforeImg.width;
-  h = beforeImg.height;
+/* ノズル位置 */
+const NOZZLE_X=0.08;
+const NOZZLE_Y=0.08;
 
-  [bg,dirt,effect].forEach(c=>{
-    c.width=w;
-    c.height=h;
-  });
+const img=new Image();
+img.src="before.png";
 
-  bgCtx.drawImage(cleanImg,0,0,w,h);
-  dCtx.drawImage(beforeImg,0,0,w,h);
+/* 初期化（重要：画面サイズ基準） */
+img.onload=()=>{
+  const rect = game.getBoundingClientRect();
+
+  dirt.width = rect.width;
+  dirt.height = rect.height;
+
+  spray.width = rect.width;
+  spray.height = rect.height;
+
+  dCtx.drawImage(img,0,0,rect.width,rect.height);
+};
+
+/* ノズル位置 */
+function getNozzle(){
+
+  const rect=hose.getBoundingClientRect();
+  const gRect=game.getBoundingClientRect();
+
+  let nx=rect.width*NOZZLE_X;
+  let ny=rect.height*NOZZLE_Y;
+
+  if(flipXFlag) nx=rect.width-nx;
+  if(flipYFlag) ny=rect.height-ny;
+
+  let gx=rect.left-gRect.left+nx;
+  let gy=rect.top -gRect.top +ny;
+
+  return { x:gx, y:gy };
 }
 
-function cleanAt(x,y){
+/* 水＋削り */
+function sprayAll(){
+
+  const n=getNozzle();
+
+  sCtx.clearRect(0,0,spray.width,spray.height);
 
   dCtx.save();
   dCtx.globalCompositeOperation="destination-out";
 
-  for(let i=0;i<20;i++){
-    let dx=(Math.random()-0.5)*40;
-    let dy=(Math.random()-0.5)*40;
+  let dx=flipXFlag?1:-1;
+  let dy=flipYFlag?1:-1;
 
+  let len=Math.sqrt(dx*dx+dy*dy);
+  dx/=len; dy/=len;
+
+  for(let i=0;i<100;i++){
+
+    let spread=(Math.random()-0.5)*0.4;
+
+    let sx=-dy*spread;
+    let sy=dx*spread;
+
+    let vx=dx+sx;
+    let vy=dy+sy;
+
+    let dist=Math.random()*200;
+
+    let x=n.x+vx*dist;
+    let y=n.y+vy*dist;
+
+    /* 水 */
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
+    sCtx.fillRect(x,y,2,6);
+
+    /* 削り */
     dCtx.beginPath();
-    dCtx.arc(x+dx,y+dy,15,0,Math.PI*2);
+    dCtx.arc(x,y,12,0,Math.PI*2);
     dCtx.fill();
   }
 
   dCtx.restore();
-
-  drawEffect(x,y);
 }
 
-function drawEffect(x,y){
+/* ホース吸着 */
+function moveHose(x,y){
 
-  eCtx.clearRect(0,0,w,h);
+  const gRect=game.getBoundingClientRect();
+  const rect=hose.getBoundingClientRect();
 
-  for(let i=0;i<60;i++){
-    eCtx.fillStyle="rgba(255,255,255,0.3)";
-    eCtx.fillRect(
-      x+(Math.random()*40-20),
-      y+(Math.random()*40-20),
-      2,6
-    );
-  }
+  hose.style.left=(x-gRect.left-rect.width*GRIP_X)+"px";
+  hose.style.top =(y-gRect.top -rect.height*GRIP_Y)+"px";
 }
 
-function checkClear(){
-
-  const data=dCtx.getImageData(0,0,w,h).data;
-
-  let remain=0;
-
-  for(let i=3;i<data.length;i+=4){
-    if(data[i]>10) remain++;
-  }
-
-  if(remain < data.length/4*0.02){
-    finished=true;
-
-    bgCtx.clearRect(0,0,w,h);
-    bgCtx.drawImage(clearImg,0,0,w,h);
-  }
+/* 反転 */
+function applyTransform(){
+  hose.style.transform=
+    `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
 }
 
-bg.addEventListener("pointerdown",()=>{
-  if(finished) return;
+function flipX(){
+  flipXFlag=!flipXFlag;
+  applyTransform();
+}
+
+function flipY(){
+  flipYFlag=!flipYFlag;
+  applyTransform();
+}
+
+/* 操作 */
+window.addEventListener("pointerdown",e=>{
   isDown=true;
 });
 
@@ -142,16 +200,11 @@ window.addEventListener("pointerup",()=>{
   isDown=false;
 });
 
-bg.addEventListener("pointermove",e=>{
-  if(!isDown || finished) return;
+window.addEventListener("pointermove",e=>{
+  if(!isDown) return;
 
-  const rect=bg.getBoundingClientRect();
-
-  let x=(e.clientX-rect.left)*(w/rect.width);
-  let y=(e.clientY-rect.top)*(h/rect.height);
-
-  cleanAt(x,y);
-  checkClear();
+  moveHose(e.clientX,e.clientY);
+  sprayAll();
 });
 </script>
 
