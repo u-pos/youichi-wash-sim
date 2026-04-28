@@ -98,8 +98,35 @@ body{
     <button onclick="flipX()">左右</button>
   </div>
 </div>
+#clearImg{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  display:none;
+  z-index:5;
+}
 
+#restartBtn{
+  position:absolute;
+  bottom:-60px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 20px;
+  font-size:16px;
+  background:#fff;
+  color:#000;
+  border:none;
+  border-radius:8px;
+  display:none;
+  z-index:10;
+}
 <script>
+const clearImg = document.getElementById("clearImg");
+const restartBtn = document.getElementById("restartBtn");
+
+let finished = false;  
 document.addEventListener("touchmove", function(e){
   e.preventDefault();
 }, { passive:false });  
@@ -223,8 +250,15 @@ function updateProgress(){
 
   bar.style.width=p+"%";
   percent.innerText="残り "+p+"%";
-}
 
+  // ★ここ追加
+  if(p <= 1 && !finished){
+    finished = true;
+
+    clearImg.style.display = "block";
+    restartBtn.style.display = "block";
+  }
+}
 /* 吸着 */
 function moveHose(x,y){
   const gRect=game.getBoundingClientRect();
@@ -247,11 +281,12 @@ window.addEventListener("pointerdown",()=>{ isDown=true; });
 window.addEventListener("pointerup",()=>{ isDown=false; });
 
 window.addEventListener("pointermove",e=>{
-  if(!isDown) return;
+  if(!isDown || finished) return;  // ←ここ追加
   moveHose(e.clientX,e.clientY);
   sprayAll();
 });
 </script>
-
+<img id="clearImg" src="missionclear.png">
+<button id="restartBtn">再度きれいにする</button>
 </body>
 </html>
