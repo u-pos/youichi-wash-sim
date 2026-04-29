@@ -27,7 +27,9 @@ body{
   padding:6px;
 }
 #percent{
-  font-size:14px;
+  font-size:28px;
+  font-weight:bold;
+  text-shadow:0 0 5px #000;
 }
 #barWrap{
   width:100%;
@@ -118,7 +120,7 @@ body{
   <img id="hose" src="hoseA.png">
 
 <img id="clearImg" src="missionclear.png">
-<button id="restartBtn">再度よごす</button>
+<button id="restartBtn" onclick="restart()">もう一度汚す</button>
   
   <div class="controls">
     <button onclick="flipY()">上下</button>
@@ -127,6 +129,7 @@ body{
 </div>
 
 <script>
+document.getElementById("restartBtn").addEventListener("click", restart);
 const clearImg = document.getElementById("clearImg");
 const restartBtn = document.getElementById("restartBtn");
 
@@ -195,7 +198,30 @@ function getNozzle(){
     y:(rect.top -gRect.top +ny)
   };
 }
+function restart(){
 
+  const w = game.clientWidth;
+  const h = game.clientHeight;
+
+  // 汚れリセット
+  dCtx.clearRect(0,0,dirt.width,dirt.height);
+  dCtx.drawImage(img,0,0,w,h);
+
+  // エフェクト消す
+  sCtx.clearRect(0,0,spray.width,spray.height);
+
+  // UIリセット
+  bar.style.width = "100%";
+  percent.innerText = "残り 100%";
+
+  // クリア表示消す
+  clearImg.style.display = "none";
+  restartBtn.style.display = "none";
+
+  // 状態戻す
+  finished = false;
+}
+  
 /* 水＋削り */
 function sprayAll(){
 
