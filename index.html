@@ -106,7 +106,8 @@ body{
 </head>
 
 <body>
-
+<audio id="waterSound" src="water_long.mp3"></audio>
+<audio id="clearSound" src="clear.mp3"></audio>
 <div class="hud">
   <div id="percent">残り 100%</div>
   <div id="barWrap"><div id="bar"></div></div>
@@ -129,6 +130,11 @@ body{
 </div>
 
 <script>
+const waterSound = document.getElementById("waterSound");
+const clearSound = document.getElementById("clearSound");
+
+waterSound.volume = 0.6;
+clearSound.volume = 1.0;
 document.getElementById("restartBtn").addEventListener("click", restart);
 const clearImg = document.getElementById("clearImg");
 const restartBtn = document.getElementById("restartBtn");
@@ -279,31 +285,24 @@ function restart(){
   flipXFlag = false;
   flipYFlag = false;
   applyTransform();
+  waterSound.pause();
+  waterSound.currentTime = 0;
 }
 /* 水＋削り */
 
 /* 進捗 */
-function updateProgress(){
-  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
+if(p === 0 && !finished){
+  finished = true;
 
-  let remain=0;
+  clearImg.style.display = "block";
+  restartBtn.style.display = "block";
 
-  for(let i=3;i<data.length;i+=4){
-    if(data[i]>0) remain++;
-  }
+  // 水音止める
+  waterSound.pause();
 
-  let p=Math.floor(remain/totalPixels*100);
-
-  bar.style.width=p+"%";
-  percent.innerText="残り "+p+"%";
-
-  // ★ここ追加
-　if(p === 0 && !finished){
-    finished = true;
-
-    clearImg.style.display = "block";
-    restartBtn.style.display = "block";
-  }
+  // クリア音
+  clearSound.currentTime = 0;
+  clearSound.play().catch(()=>{});
 }
 /* 吸着 */
 function moveHose(x,y){
@@ -323,8 +322,23 @@ function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-window.addEventListener("pointerdown",()=>{ isDown=true; });
-window.addEventListener("pointerup",()=>{ isDown=false; });
+window.addEventListener("pointerdown",()=>{
+  if(finished) return;
+
+  isDown = true;
+
+  // ★ここ重要
+  if(waterSound.paused){
+    waterSound.currentTime = 0;
+    waterSound.play().catch(()=>{});
+  }
+});
+
+window.addEventListener("pointerup",()=>{
+  isDown = false;
+
+  waterSound.pause();
+});
 
 window.addEventListener("pointermove",e=>{
   if(!isDown || finished) return;  // ←ここ追加
