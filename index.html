@@ -74,9 +74,12 @@ body{
   position:absolute;
   top:10px;
   right:10px;
-  z-index:999;
+  z-index:1000;
+
   display:flex;
   gap:5px;
+
+  width:auto;  /* ★追加 */
 }
   #clearImg{
   position:absolute;
@@ -88,19 +91,22 @@ body{
   z-index:5;
 }
 
-#restartBtn{
+#resetBtn{
   position:absolute;
-  bottom:-60px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:10px 20px;
-  font-size:16px;
-  background:#fff;
-  color:#000;
+  top:10px;
+  left:10px;
+  z-index:1000;
+
+  padding:8px 12px;
+  font-size:14px;
+
+  background:#222;
+  color:#fff;
   border:none;
-  border-radius:8px;
-  display:none;
-  z-index:10;
+  border-radius:6px;
+
+  width:auto;        /* ★追加 */
+  height:auto;       /* ★追加 */
 }
 </style>
 </head>
@@ -322,12 +328,11 @@ function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-window.addEventListener("pointerdown",()=>{
+game.addEventListener("pointerdown",()=>{
   if(finished) return;
 
   isDown = true;
 
-  // ★ここ重要
   if(waterSound.paused){
     waterSound.currentTime = 0;
     waterSound.play().catch(()=>{});
