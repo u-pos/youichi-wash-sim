@@ -74,12 +74,9 @@ body{
   position:absolute;
   top:10px;
   right:10px;
-  z-index:1000;
-
+  z-index:999;
   display:flex;
   gap:5px;
-
-  width:auto;  /* ★追加 */
 }
   #clearImg{
   position:absolute;
@@ -91,29 +88,25 @@ body{
   z-index:5;
 }
 
-#resetBtn{
+#restartBtn{
   position:absolute;
-  top:10px;
-  left:10px;
-  z-index:1000;
-
-  padding:8px 12px;
-  font-size:14px;
-
-  background:#222;
-  color:#fff;
+  bottom:-60px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 20px;
+  font-size:16px;
+  background:#fff;
+  color:#000;
   border:none;
-  border-radius:6px;
-
-  width:auto;        /* ★追加 */
-  height:auto;       /* ★追加 */
+  border-radius:8px;
+  display:none;
+  z-index:10;
 }
 </style>
 </head>
 
 <body>
-<audio id="waterSound" src="water_long.mp3"></audio>
-<audio id="clearSound" src="clear.mp3"></audio>
+
 <div class="hud">
   <div id="percent">残り 100%</div>
   <div id="barWrap"><div id="bar"></div></div>
@@ -136,11 +129,6 @@ body{
 </div>
 
 <script>
-const waterSound = document.getElementById("waterSound");
-const clearSound = document.getElementById("clearSound");
-
-waterSound.volume = 0.6;
-clearSound.volume = 1.0;
 document.getElementById("restartBtn").addEventListener("click", restart);
 const clearImg = document.getElementById("clearImg");
 const restartBtn = document.getElementById("restartBtn");
@@ -291,24 +279,31 @@ function restart(){
   flipXFlag = false;
   flipYFlag = false;
   applyTransform();
-  waterSound.pause();
-  waterSound.currentTime = 0;
 }
 /* 水＋削り */
 
 /* 進捗 */
-if(p === 0 && !finished){
-  finished = true;
+function updateProgress(){
+  const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
-  clearImg.style.display = "block";
-  restartBtn.style.display = "block";
+  let remain=0;
 
-  // 水音止める
-  waterSound.pause();
+  for(let i=3;i<data.length;i+=4){
+    if(data[i]>0) remain++;
+  }
 
-  // クリア音
-  clearSound.currentTime = 0;
-  clearSound.play().catch(()=>{});
+  let p=Math.floor(remain/totalPixels*100);
+
+  bar.style.width=p+"%";
+  percent.innerText="残り "+p+"%";
+
+  // ★ここ追加
+　if(p === 0 && !finished){
+    finished = true;
+
+    clearImg.style.display = "block";
+    restartBtn.style.display = "block";
+  }
 }
 /* 吸着 */
 function moveHose(x,y){
@@ -328,26 +323,11 @@ function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
 /* 操作 */
-game.addEventListener("pointerdown",()=>{
-  if(finished) return;
+window.addEventListener("pointerdown",()=>{ isDown=true; });
+window.addEventListener("pointerup",()=>{ isDown=false; });
 
-  isDown = true;
-
-  if(waterSound.paused){
-    waterSound.currentTime = 0;
-    waterSound.play().catch(()=>{});
-  }
-});
-
-window.addEventListener("pointerup",()=>{
-  isDown = false;
-
-  waterSound.pause();
-});
-
-game.addEventListener("pointermove",e=>{
-  if(!isDown || finished) return;
-
+window.addEventListener("pointermove",e=>{
+  if(!isDown || finished) return;  // ←ここ追加
   moveHose(e.clientX,e.clientY);
   sprayAll();
 });
