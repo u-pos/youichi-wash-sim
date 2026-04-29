@@ -191,7 +191,51 @@ initTop  = hose.style.top  || (hose.offsetTop  + "px");
 initFlipX = false;
 initFlipY = false;
 };
+function sprayAll(){
 
+  const n = getNozzle();
+
+  sCtx.clearRect(0,0,spray.width,spray.height);
+
+  dCtx.save();
+  dCtx.globalCompositeOperation="destination-out";
+
+  let dx = flipXFlag ? 1 : -1;
+  let dy = flipYFlag ? 1 : -1;
+
+  let len=Math.sqrt(dx*dx+dy*dy);
+  dx/=len;
+  dy/=len;
+
+  for(let i=0;i<100;i++){
+
+    let spread=(Math.random()-0.5)*0.4;
+
+    let sx=-dy*spread;
+    let sy=dx*spread;
+
+    let vx=dx+sx;
+    let vy=dy+sy;
+
+    let dist=Math.random()*200;
+
+    let x=n.x+vx*dist;
+    let y=n.y+vy*dist;
+
+    // 水
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
+    sCtx.fillRect(x,y,2,6);
+
+    // 削り
+    dCtx.beginPath();
+    dCtx.arc(x,y,12,0,Math.PI*2);
+    dCtx.fill();
+  }
+
+  dCtx.restore();
+
+  updateProgress();
+}
 /* ノズル */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
@@ -226,47 +270,17 @@ function restart(){
 
   finished = false;
 
-  // ★ここが重要修正
-  const gRect = game.getBoundingClientRect();
-
-  const initX = gRect.left + game.clientWidth * 0.7;
-  const initY = gRect.top  + game.clientHeight * 0.7;
-
-  moveHose(initX, initY);
+  // ホース初期位置
+  moveHose(
+    game.getBoundingClientRect().left + game.clientWidth * 0.7,
+    game.getBoundingClientRect().top  + game.clientHeight * 0.7
+  );
 
   flipXFlag = false;
   flipYFlag = false;
   applyTransform();
 }
-  
 /* 水＋削り */
-function restart(){
-
-  const w = game.clientWidth;
-  const h = game.clientHeight;
-
-  dCtx.clearRect(0,0,dirt.width,dirt.height);
-  dCtx.drawImage(img,0,0,w,h);
-
-  sCtx.clearRect(0,0,spray.width,spray.height);
-
-  bar.style.width = "100%";
-  percent.innerText = "残り 100%";
-
-  clearImg.style.display = "none";
-  restartBtn.style.display = "none";
-
-  finished = false;
-
-  // ★ここ追加
-  hose.style.left = initLeft;
-  hose.style.top  = initTop;
-
-  flipXFlag = initFlipX;
-  flipYFlag = initFlipY;
-
-  applyTransform();
-}
 
 /* 進捗 */
 function updateProgress(){
