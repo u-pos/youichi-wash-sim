@@ -120,36 +120,31 @@ body{
 <script>
 const loading = document.getElementById("loading");
 
-/* ★確実に読み込み検知 */
-const assets = [
+/* ★画像だけ監視（これが重要） */
+const images = [
   "bg.png",
   "clean.png",
   "missionclear.png",
   "hoseA.png",
-  "before.png",
-  "water1.mp3",
-  "clear.mp3"
+  "before.png"
 ];
 
 let loaded = 0;
 
-assets.forEach(src=>{
-  const isAudio = src.endsWith(".mp3");
-  const el = isAudio ? new Audio() : new Image();
-
-  el.src = src;
-
-  el.addEventListener(isAudio ? "canplaythrough" : "load", ()=>{
+images.forEach(src=>{
+  const img = new Image();
+  img.src = src;
+  img.onload = ()=>{
     loaded++;
 
-    if(loaded === assets.length){
+    if(loaded === images.length){
       loading.style.display = "none";
       ready = true;
     }
-  });
+  };
 });
 
-/* ===== ここからゲーム本体（そのまま） ===== */
+/* ===== ゲーム ===== */
 
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
@@ -177,12 +172,12 @@ const NOZZLE_Y=0.08;
 const bar=document.getElementById("bar");
 const percent=document.getElementById("percent");
 
-const img=new Image();
-img.src="before.png";
+const baseImg=new Image();
+baseImg.src="before.png";
 
 let totalPixels=0;
 
-img.onload=()=>{
+baseImg.onload=()=>{
   const w=game.clientWidth;
   const h=game.clientHeight;
 
@@ -191,7 +186,7 @@ img.onload=()=>{
   spray.width=w;
   spray.height=h;
 
-  dCtx.drawImage(img,0,0,w,h);
+  dCtx.drawImage(baseImg,0,0,w,h);
 
   const data=dCtx.getImageData(0,0,w,h).data;
   for(let i=3;i<data.length;i+=4){
@@ -298,7 +293,7 @@ function restart(){
   const h=game.clientHeight;
 
   dCtx.clearRect(0,0,dirt.width,dirt.height);
-  dCtx.drawImage(img,0,0,w,h);
+  dCtx.drawImage(baseImg,0,0,w,h);
 
   sCtx.clearRect(0,0,spray.width,spray.height);
 
