@@ -34,21 +34,18 @@ body{
 
 /* HUD */
 .hud{ width:360px; padding:6px; }
-#percent{ font-size:28px; font-weight:bold; text-shadow:0 0 5px #000; }
+#percent{ font-size:28px; font-weight:bold; }
 #barWrap{ width:100%; height:8px; background:#333; }
 #bar{ height:100%; width:100%; background:#4fc3f7; }
 
-/* ゲーム */
 .game{ position:relative; width:360px; height:480px; }
 
 .game img,.game canvas{
   position:absolute;
   top:0; left:0;
   width:100%; height:100%;
-  touch-action:none;
 }
 
-/* ホース */
 #hose{
   position:absolute;
   width:320px;
@@ -57,7 +54,6 @@ body{
   z-index:4;
 }
 
-/* 右上 */
 .controls{
   position:absolute;
   top:10px;
@@ -67,7 +63,6 @@ body{
   gap:5px;
 }
 
-/* 左上リセット */
 #resetBtn{
   position:absolute;
   top:10px;
@@ -75,7 +70,6 @@ body{
   z-index:999;
 }
 
-/* クリア */
 #clearImg{
   position:absolute;
   top:0; left:0;
@@ -98,8 +92,8 @@ body{
 
 <div id="loading">Loading...</div>
 
-<audio id="waterSound" src="water1.mp3" preload="auto"></audio>
-<audio id="clearSound" src="clear.mp3" preload="auto"></audio>
+<audio id="waterSound" src="water1.mp3"></audio>
+<audio id="clearSound" src="clear.mp3"></audio>
 
 <div class="hud">
   <div id="percent">残り 100%</div>
@@ -115,7 +109,6 @@ body{
 
   <img id="clearImg" src="missionclear.png">
   <button id="restartBtn" onclick="restart()">もう一度汚す</button>
-
   <button id="resetBtn" onclick="restart()">はじめから</button>
 
   <div class="controls">
@@ -125,43 +118,46 @@ body{
 </div>
 
 <script>
-const waterSound = document.getElementById("waterSound");
-const clearSound = document.getElementById("clearSound");
-
 const loading = document.getElementById("loading");
 
+/* ★確実に読み込み検知 */
 const assets = [
-  document.getElementById("bgImg"),
-  document.getElementById("cleanImg"),
-  document.getElementById("clearImg"),
-  waterSound,
-  clearSound
+  "bg.png",
+  "clean.png",
+  "missionclear.png",
+  "hoseA.png",
+  "before.png",
+  "water1.mp3",
+  "clear.mp3"
 ];
 
-let loadedCount = 0;
-let ready = false;
+let loaded = 0;
 
-assets.forEach(a=>{
-  if(a.complete || a.readyState >= 2){
-    loadedCount++;
-  }else{
-    a.addEventListener("load",check);
-    a.addEventListener("canplaythrough",check);
-  }
+assets.forEach(src=>{
+  const isAudio = src.endsWith(".mp3");
+  const el = isAudio ? new Audio() : new Image();
+
+  el.src = src;
+
+  el.addEventListener(isAudio ? "canplaythrough" : "load", ()=>{
+    loaded++;
+
+    if(loaded === assets.length){
+      loading.style.display = "none";
+      ready = true;
+    }
+  });
 });
 
-function check(){
-  loadedCount++;
-  if(loadedCount >= assets.length){
-    ready = true;
-    loading.style.display = "none";
-  }
-}
+/* ===== ここからゲーム本体（そのまま） ===== */
 
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
+
+const waterSound = document.getElementById("waterSound");
+const clearSound = document.getElementById("clearSound");
 
 const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
@@ -171,6 +167,7 @@ let flipXFlag=false;
 let flipYFlag=false;
 let finished=false;
 let started=false;
+let ready=false;
 
 const GRIP_X=0.48;
 const GRIP_Y=0.42;
