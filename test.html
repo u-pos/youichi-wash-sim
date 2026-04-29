@@ -16,51 +16,36 @@ body{
   height:100vh;
   overflow:hidden;
   color:#fff;
+  touch-action:none;
+  overscroll-behavior:none;
+}
 
-  touch-action:none;        /* ★これ追加 */
-  overscroll-behavior:none; /* ★これ追加 */
+/* ローディング */
+#loading{
+  position:fixed;
+  inset:0;
+  background:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  z-index:9999;
 }
 
 /* HUD */
-.hud{
-  width:360px;
-  padding:6px;
-}
-#percent{
-  font-size:28px;
-  font-weight:bold;
-  text-shadow:0 0 5px #000;
-}
-#barWrap{
-  width:100%;
-  height:8px;
-  background:#333;
-}
-#bar{
-  height:100%;
-  width:100%;
-  background:#4fc3f7;
-}
+.hud{ width:360px; padding:6px; }
+#percent{ font-size:28px; font-weight:bold; }
+#barWrap{ width:100%; height:8px; background:#333; }
+#bar{ height:100%; width:100%; background:#4fc3f7; }
 
-/* ゲーム */
-.game{
-  position:relative;
-  width:360px;
-  height:480px; /* ←固定（重要） */
-}
+.game{ position:relative; width:360px; height:480px; }
 
-/* ★object-fit削除 */
 .game img,.game canvas{
   position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-
-  touch-action:none; /* ★これ追加 */
+  top:0; left:0;
+  width:100%; height:100%;
 }
 
-/* ホース */
 #hose{
   position:absolute;
   width:320px;
@@ -69,7 +54,6 @@ body{
   z-index:4;
 }
 
-/* ボタン */
 .controls{
   position:absolute;
   top:10px;
@@ -78,27 +62,26 @@ body{
   display:flex;
   gap:5px;
 }
-  #clearImg{
+
+#resetBtn{
   position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
+  top:10px;
+  left:10px;
+  z-index:999;
+}
+
+#clearImg{
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
   display:none;
   z-index:5;
 }
-
 #restartBtn{
   position:absolute;
   bottom:-60px;
   left:50%;
   transform:translateX(-50%);
-  padding:10px 20px;
-  font-size:16px;
-  background:#fff;
-  color:#000;
-  border:none;
-  border-radius:8px;
   display:none;
   z-index:10;
 }
@@ -106,23 +89,28 @@ body{
 </head>
 
 <body>
+
+<div id="loading">Loading...</div>
+
 <audio id="waterSound" src="water1.mp3"></audio>
 <audio id="clearSound" src="clear.mp3"></audio>
+
 <div class="hud">
   <div id="percent">残り 100%</div>
   <div id="barWrap"><div id="bar"></div></div>
 </div>
 
 <div class="game" id="game">
-  <img src="bg.png">
-  <img src="clean.png">
+  <img id="bgImg" src="bg.png">
+  <img id="cleanImg" src="clean.png">
   <canvas id="dirt"></canvas>
   <canvas id="spray"></canvas>
   <img id="hose" src="hoseA.png">
 
-<img id="clearImg" src="missionclear.png">
-<button id="restartBtn" onclick="restart()">もう一度汚す</button>
-  
+  <img id="clearImg" src="missionclear.png">
+  <button id="restartBtn" onclick="restart()">もう一度汚す</button>
+  <button id="resetBtn" onclick="restart()">はじめから</button>
+
   <div class="controls">
     <button onclick="flipY()">上下反転</button>
     <button onclick="flipX()">左右反転</button>
@@ -130,30 +118,41 @@ body{
 </div>
 
 <script>
-const waterSound = document.getElementById("waterSound");
-const clearSound = document.getElementById("clearSound");
+const loading = document.getElementById("loading");
 
-waterSound.volume = 0.6;
-clearSound.volume = 1.0;
-document.getElementById("restartBtn").addEventListener("click", restart);
-const clearImg = document.getElementById("clearImg");
-const restartBtn = document.getElementById("restartBtn");
+/* ★画像だけ監視（これが重要） */
+const images = [
+  "bg.png",
+  "clean.png",
+  "missionclear.png",
+  "hoseA.png",
+  "before.png"
+];
 
-let finished = false;  
-document.addEventListener("touchmove", function(e){
-  e.preventDefault();
-}, { passive:false });  
+let loaded = 0;
+
+images.forEach(src=>{
+  const img = new Image();
+  img.src = src;
+  img.onload = ()=>{
+    loaded++;
+
+    if(loaded === images.length){
+      loading.style.display = "none";
+      ready = true;
+    }
+  };
+});
+
+/* ===== ゲーム ===== */
+
 const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
-// 初期位置・向きを保存
-let initLeft = 0;
-let initTop  = 0;
-let initFlipX = false;
-let initFlipY = false;
-const bar=document.getElementById("bar");
-const percent=document.getElementById("percent");
+
+const waterSound = document.getElementById("waterSound");
+const clearSound = document.getElementById("clearSound");
 
 const dCtx=dirt.getContext("2d");
 const sCtx=spray.getContext("2d");
@@ -161,88 +160,40 @@ const sCtx=spray.getContext("2d");
 let isDown=false;
 let flipXFlag=false;
 let flipYFlag=false;
+let finished=false;
+let started=false;
+let ready=false;
 
-/* 吸着 */
 const GRIP_X=0.48;
 const GRIP_Y=0.42;
-
-/* ノズル */
 const NOZZLE_X=0.22;
 const NOZZLE_Y=0.08;
 
+const bar=document.getElementById("bar");
+const percent=document.getElementById("percent");
+
+const baseImg=new Image();
+baseImg.src="before.png";
+
 let totalPixels=0;
 
-const img=new Image();
-img.src="before.png";
+baseImg.onload=()=>{
+  const w=game.clientWidth;
+  const h=game.clientHeight;
 
-/* ★完全一致で初期化 */
-img.onload=()=>{
-  const w = game.clientWidth;
-  const h = game.clientHeight;
+  dirt.width=w;
+  dirt.height=h;
+  spray.width=w;
+  spray.height=h;
 
-  dirt.width = w;
-  dirt.height = h;
-  spray.width = w;
-  spray.height = h;
-
-  dCtx.drawImage(img,0,0,w,h);
+  dCtx.drawImage(baseImg,0,0,w,h);
 
   const data=dCtx.getImageData(0,0,w,h).data;
   for(let i=3;i<data.length;i+=4){
     if(data[i]>0) totalPixels++;
   }
-  // 初期値を確定（1回だけ）
-initLeft = hose.style.left || (hose.offsetLeft + "px");
-initTop  = hose.style.top  || (hose.offsetTop  + "px");
-initFlipX = false;
-initFlipY = false;
 };
-function sprayAll(){
 
-  const n = getNozzle();
-
-  sCtx.clearRect(0,0,spray.width,spray.height);
-
-  dCtx.save();
-  dCtx.globalCompositeOperation="destination-out";
-
-  let dx = flipXFlag ? 1 : -1;
-  let dy = flipYFlag ? 1 : -1;
-
-  let len=Math.sqrt(dx*dx+dy*dy);
-  dx/=len;
-  dy/=len;
-
-  for(let i=0;i<100;i++){
-
-    let spread=(Math.random()-0.5)*0.5;
-
-    let sx=-dy*spread;
-    let sy=dx*spread;
-
-    let vx=dx+sx;
-    let vy=dy+sy;
-
-    let dist=Math.random()*100;
-
-    let x=n.x+vx*dist;
-    let y=n.y+vy*dist;
-
-    // 水
-    sCtx.fillStyle="rgba(255,255,255,0.35)";
-    sCtx.fillRect(x,y,2,6);
-
-    // 削り
-    dCtx.beginPath();
-    dCtx.arc(x,y,4,0,Math.PI*2);
-    dCtx.fill();
-  }
-
-  dCtx.restore();
-
-  updateProgress();
-}
-/* ノズル */
 function getNozzle(){
   const rect=hose.getBoundingClientRect();
   const gRect=game.getBoundingClientRect();
@@ -258,45 +209,50 @@ function getNozzle(){
     y:(rect.top -gRect.top +ny)
   };
 }
-function restart(){
 
-  const w = game.clientWidth;
-  const h = game.clientHeight;
-
-  dCtx.clearRect(0,0,dirt.width,dirt.height);
-  dCtx.drawImage(img,0,0,w,h);
+function sprayAll(){
+  const n=getNozzle();
 
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  bar.style.width = "100%";
-  percent.innerText = "残り 100%";
+  dCtx.save();
+  dCtx.globalCompositeOperation="destination-out";
 
-  clearImg.style.display = "none";
-  restartBtn.style.display = "none";
+  let dx=flipXFlag?1:-1;
+  let dy=flipYFlag?1:-1;
 
-  finished = false;
+  let len=Math.sqrt(dx*dx+dy*dy);
+  dx/=len; dy/=len;
 
-  // ホース初期位置
-  moveHose(
-    game.getBoundingClientRect().left + game.clientWidth * 0.7,
-    game.getBoundingClientRect().top  + game.clientHeight * 0.7
-  );
+  for(let i=0;i<100;i++){
+    let spread=(Math.random()-0.5)*0.5;
+    let sx=-dy*spread;
+    let sy=dx*spread;
 
-  flipXFlag = false;
-  flipYFlag = false;
-  applyTransform();
-  waterSound.pause();
-  waterSound.currentTime = 0;
-  started = false;
+    let vx=dx+sx;
+    let vy=dy+sy;
+
+    let dist=Math.random()*100;
+
+    let x=n.x+vx*dist;
+    let y=n.y+vy*dist;
+
+    sCtx.fillStyle="rgba(255,255,255,0.35)";
+    sCtx.fillRect(x,y,2,6);
+
+    dCtx.beginPath();
+    dCtx.arc(x,y,4,0,Math.PI*2);
+    dCtx.fill();
+  }
+
+  dCtx.restore();
+  updateProgress();
 }
-/* 水＋削り */
 
-/* 進捗 */
 function updateProgress(){
   const data=dCtx.getImageData(0,0,dirt.width,dirt.height).data;
 
   let remain=0;
-
   for(let i=3;i<data.length;i+=4){
     if(data[i]>0) remain++;
   }
@@ -306,22 +262,17 @@ function updateProgress(){
   bar.style.width=p+"%";
   percent.innerText="残り "+p+"%";
 
-  // ★ここ追加
-　if(p === 0 && !finished){
-  finished = true;
+  if(p===0 && !finished){
+    finished=true;
+    document.getElementById("clearImg").style.display="block";
+    document.getElementById("restartBtn").style.display="block";
 
-  clearImg.style.display = "block";
-  restartBtn.style.display = "block";
-
-  // ★水音停止
-  waterSound.pause();
-
-  // ★クリア音
-  clearSound.currentTime = 0;
-  clearSound.play().catch(()=>{});
+    waterSound.pause();
+    clearSound.currentTime=0;
+    clearSound.play().catch(()=>{});
+  }
 }
-}
-/* 吸着 */
+
 function moveHose(x,y){
   const gRect=game.getBoundingClientRect();
   const rect=hose.getBoundingClientRect();
@@ -330,7 +281,6 @@ function moveHose(x,y){
   hose.style.top =(y-gRect.top -rect.height*GRIP_Y)+"px";
 }
 
-/* 反転 */
 function applyTransform(){
   hose.style.transform=
     `scaleX(${flipXFlag?-1:1}) scaleY(${flipYFlag?-1:1})`;
@@ -338,26 +288,49 @@ function applyTransform(){
 function flipX(){ flipXFlag=!flipXFlag; applyTransform(); }
 function flipY(){ flipYFlag=!flipYFlag; applyTransform(); }
 
-/* 操作 */
-let started = false;
+function restart(){
+  const w=game.clientWidth;
+  const h=game.clientHeight;
+
+  dCtx.clearRect(0,0,dirt.width,dirt.height);
+  dCtx.drawImage(baseImg,0,0,w,h);
+
+  sCtx.clearRect(0,0,spray.width,spray.height);
+
+  bar.style.width="100%";
+  percent.innerText="残り 100%";
+
+  document.getElementById("clearImg").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+
+  finished=false;
+  started=false;
+
+  waterSound.pause();
+  waterSound.currentTime=0;
+}
 
 window.addEventListener("pointerdown",()=>{
-  isDown = true;
+  if(!ready) return;
+
+  isDown=true;
 
   if(!started){
-    started = true;
-
-    waterSound.currentTime = Math.random()*5; // 少しランダム開始で自然に
+    started=true;
+    waterSound.currentTime=Math.random()*5;
     waterSound.play().catch(()=>{});
   }
 });
+
 window.addEventListener("pointerup",()=>{ isDown=false; });
 
 window.addEventListener("pointermove",e=>{
-  if(!isDown || finished) return;  // ←ここ追加
+  if(!isDown || finished || !ready) return;
+
   moveHose(e.clientX,e.clientY);
   sprayAll();
 });
 </script>
+
 </body>
 </html>
