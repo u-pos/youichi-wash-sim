@@ -345,8 +345,9 @@ window.addEventListener("pointerup",()=>{
   waterSound.pause();
 });
 
-window.addEventListener("pointermove",e=>{
-  if(!isDown || finished) return;  // ←ここ追加
+game.addEventListener("pointermove",e=>{
+  if(!isDown || finished) return;
+
   moveHose(e.clientX,e.clientY);
   sprayAll();
 });
