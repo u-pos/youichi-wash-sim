@@ -141,6 +141,11 @@ const game=document.getElementById("game");
 const dirt=document.getElementById("dirt");
 const spray=document.getElementById("spray");
 const hose=document.getElementById("hose");
+// 初期位置・向きを保存
+let initLeft = 0;
+let initTop  = 0;
+let initFlipX = false;
+let initFlipY = false;
 const bar=document.getElementById("bar");
 const percent=document.getElementById("percent");
 
@@ -180,6 +185,11 @@ img.onload=()=>{
   for(let i=3;i<data.length;i+=4){
     if(data[i]>0) totalPixels++;
   }
+  // 初期値を確定（1回だけ）
+initLeft = hose.style.left || (hose.offsetLeft + "px");
+initTop  = hose.style.top  || (hose.offsetTop  + "px");
+initFlipX = false;
+initFlipY = false;
 };
 
 /* ノズル */
@@ -223,47 +233,32 @@ function restart(){
 }
   
 /* 水＋削り */
-function sprayAll(){
+function restart(){
 
-  const n=getNozzle();
+  const w = game.clientWidth;
+  const h = game.clientHeight;
+
+  dCtx.clearRect(0,0,dirt.width,dirt.height);
+  dCtx.drawImage(img,0,0,w,h);
 
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  dCtx.save();
-  dCtx.globalCompositeOperation="destination-out";
+  bar.style.width = "100%";
+  percent.innerText = "残り 100%";
 
-  let dx=flipXFlag?1:-1;
-  let dy=flipYFlag?1:-1;
+  clearImg.style.display = "none";
+  restartBtn.style.display = "none";
 
-  let len=Math.sqrt(dx*dx+dy*dy);
-  dx/=len; dy/=len;
+  finished = false;
 
-  for(let i=0;i<100;i++){
+  // ★ここ追加
+  hose.style.left = initLeft;
+  hose.style.top  = initTop;
 
-    let spread=(Math.random()-0.5)*0.4;
+  flipXFlag = initFlipX;
+  flipYFlag = initFlipY;
 
-    let sx=-dy*spread;
-    let sy=dx*spread;
-
-    let vx=dx+sx;
-    let vy=dy+sy;
-
-    let dist=Math.random()*200;
-
-    let x=n.x+vx*dist;
-    let y=n.y+vy*dist;
-
-    sCtx.fillStyle="rgba(255,255,255,0.35)";
-    sCtx.fillRect(x,y,2,6);
-
-    dCtx.beginPath();
-    dCtx.arc(x,y,12,0,Math.PI*2);
-    dCtx.fill();
-  }
-
-  dCtx.restore();
-
-  updateProgress();
+  applyTransform();
 }
 
 /* 進捗 */
@@ -282,7 +277,7 @@ function updateProgress(){
   percent.innerText="残り "+p+"%";
 
   // ★ここ追加
-  if(p <= 1 && !finished){
+　if(p === 0 && !finished){
     finished = true;
 
     clearImg.style.display = "block";
