@@ -213,23 +213,30 @@ function restart(){
   const w = game.clientWidth;
   const h = game.clientHeight;
 
-  // 汚れリセット
   dCtx.clearRect(0,0,dirt.width,dirt.height);
   dCtx.drawImage(img,0,0,w,h);
 
-  // エフェクト消す
   sCtx.clearRect(0,0,spray.width,spray.height);
 
-  // UIリセット
   bar.style.width = "100%";
   percent.innerText = "残り 100%";
 
-  // クリア表示消す
   clearImg.style.display = "none";
   restartBtn.style.display = "none";
 
-  // 状態戻す
   finished = false;
+
+  // ★ここが重要修正
+  const gRect = game.getBoundingClientRect();
+
+  const initX = gRect.left + game.clientWidth * 0.7;
+  const initY = gRect.top  + game.clientHeight * 0.7;
+
+  moveHose(initX, initY);
+
+  flipXFlag = false;
+  flipYFlag = false;
+  applyTransform();
 }
   
 /* 水＋削り */
